@@ -2,10 +2,11 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
+    <meta name="referrer" content="no-referrer"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <title>智慧策展美術館</title>
     <style>
-        /* 增加 user-select: none 防止拖曳時選取文字 */
+        /* user-select: none 防止拖曳時選取文字 */
         body { margin: 0; overflow: hidden; font-family: 'Microsoft JhengHei', sans-serif; background-color: #000; user-select: none; -webkit-user-select: none; }
         
         /* 啟動畫面 */
@@ -92,7 +93,7 @@
     </div>
 
     <div id="ui-layer">
-        <div id="status">● 線上</div>
+        <div id="status">● 連線中...</div>
         <div id="crosshair"></div>
         <div id="interaction-prompt">點擊更換畫作</div>
     </div>
@@ -101,7 +102,6 @@
     <div id="look-zone"></div>
     <input type="file" id="upload-input" accept="image/*">
 
-    <!-- Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script type="module">
@@ -128,17 +128,16 @@
         ];
 
         // --------------------------------------------------------
-        // 🔧 Firebase 設定區 (請在部署時修改此處)
+        // 🔧 Firebase 設定區
         // --------------------------------------------------------
         let firebaseConfig;
         let appId = 'smart-museum-v1';
 
-        // 檢查是否在編輯器環境
         if (typeof __firebase_config !== 'undefined') {
             firebaseConfig = JSON.parse(__firebase_config);
             if(typeof __app_id !== 'undefined') appId = __app_id;
         } else {
-            // [GitHub Pages 部署]：這是您提供的設定
+            // [GitHub Pages 部署]：請確認這裡的資訊正確
             firebaseConfig = {
                 apiKey: "AIzaSyChb73kxw4a2mJqxzFp6OOtLX_2dG6SSEI",
                 authDomain: "museum-ac9af.firebaseapp.com",
@@ -148,10 +147,8 @@
                 appId: "1:863600584428:web:1bfdc27badd37d7cb467c9",
                 measurementId: "G-DPMRMLK241"
             };
-            console.log("使用自定義 Firebase 設定");
         }
 
-        // 初始化 Firebase (加入錯誤處理)
         let app, auth, db;
         let isFirebaseReady = false;
 
@@ -162,14 +159,13 @@
             isFirebaseReady = true;
         } catch (e) {
             console.error("Firebase 初始化失敗:", e);
-            alert("Firebase 設定錯誤或缺失。請檢查 Console。");
+            alert("Firebase 設定錯誤，請檢查 Console");
         }
 
         let currentUser = null;
         let myColor = new THREE.Color().setHSL(Math.random(), 0.1, 0.6).getHexString();
         let isRunning = false;
 
-        // UI
         const startScreen = document.getElementById('start-screen');
         const startBtn = document.getElementById('start-btn');
         const loadingBarContainer = document.getElementById('loading-bar-container');
@@ -214,97 +210,92 @@
         let availableFrames = { landscape: [], portrait: [], square: [] };
 
         startBtn.addEventListener('click', async () => {
-            if (!isFirebaseReady) {
-                alert("錯誤：無法連接 Firebase 服務，請檢查設定。");
-                return;
-            }
+            if (!isFirebaseReady) return;
 
-            // 1. 初始化 3D (不管 Firebase 是否成功，先讓使用者進去)
-            if(!isRunning) {
-                init3D();
-                isRunning = true;
-                // 嘗試登入
-                try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                } catch(e) {
-                    console.error("Auth Error:", e);
-                    // 關鍵：如果登入失敗，提示使用者
-                    let msg = "連線失敗";
-                    if (e.code === 'auth/operation-not-allowed') msg = "錯誤：請在 Firebase Console 開啟「匿名登入」功能";
-                    else if (e.code === 'auth/network-request-failed') msg = "錯誤：網路連線失敗，或網域未授權";
-                    else if (e.message.includes('unauthorized domain')) msg = "錯誤：此網域 (GitHub Pages) 未加入 Firebase 授權清單";
-                    
-                    alert(`${msg}\n\n您將以「離線模式」進入展覽，無法看見其他玩家或上傳圖片。`);
-                    // 雖然失敗，還是繼續進入流程
-                }
-            }
-
-            // UI Update
             startBtn.style.display = 'none';
             loadingBarContainer.style.display = 'block';
             loadingText.innerText = "正在分析圖片尺寸...";
 
-            // 2. 智慧處理圖片 (若未登入，此步驟會略過或失敗，但不影響進入)
-            if (currentUser) {
-                await smartCurate(IMAGE_POOL);
-            } else {
-                loadingText.innerText = "離線模式啟動中...";
+            if(!isRunning) {
+                init3D();
+                isRunning = true;
+                // 這裡會嘗試登入，如果沒設定 Authorized Domains 會失敗
+                initAuth();
             }
 
-            // 3. 進入
-            loadingText.innerText = "佈展完成！";
-            loadingBar.style.width = '100%';
-            setTimeout(() => {
-                startScreen.style.opacity = 0;
-                setTimeout(() => startScreen.style.display='none', 600);
+            // 等待一下 Auth，避免未登入就寫入資料庫失敗
+            loadingText.innerText = "正在連線到美術館資料庫...";
+            setTimeout(async () => {
+                await smartCurate(IMAGE_POOL);
                 
-                statusEl.style.display='block';
-                joystickZone.style.display='block';
-                lookZone.style.display='block';
-                crosshair.style.display='block';
-            }, 800);
+                loadingText.innerText = "佈展完成！";
+                loadingBar.style.width = '100%';
+                setTimeout(() => {
+                    startScreen.style.opacity = 0;
+                    setTimeout(() => startScreen.style.display='none', 600);
+                    
+                    statusEl.style.display='block';
+                    joystickZone.style.display='block';
+                    lookZone.style.display='block';
+                    crosshair.style.display='block'; 
+                }, 800);
+            }, 1000);
         });
 
         async function smartCurate(urls) {
-            if (!db || !currentUser) return; // 沒登入就不執行
+            if (!db || !auth.currentUser) {
+                console.warn("尚未登入或 DB 未初始化，跳過自動佈展寫入（但仍會顯示場景）");
+                return;
+            }
             
-            try {
-                const batch = writeBatch(db);
-                let processed = 0;
+            const batch = writeBatch(db);
+            let processed = 0;
 
-                for (let i = 0; i < urls.length; i++) {
-                    const url = urls[i];
-                    loadingBar.style.width = `${(i / urls.length) * 100}%`;
-                    
-                    try {
-                        const type = await getImageType(url);
-                        let frameId = null;
-                        if (type === 'landscape' && availableFrames.landscape.length > 0) frameId = availableFrames.landscape.shift();
-                        else if (type === 'portrait' && availableFrames.portrait.length > 0) frameId = availableFrames.portrait.shift();
-                        else if (availableFrames.square.length > 0) frameId = availableFrames.square.shift();
-                        else if (availableFrames.landscape.length > 0) frameId = availableFrames.landscape.shift();
+            for (let i = 0; i < urls.length; i++) {
+                const url = urls[i];
+                loadingBar.style.width = `${(i / urls.length) * 100}%`;
+                
+                try {
+                    const type = await getImageType(url);
+                    let frameId = null;
+                    if (type === 'landscape' && availableFrames.landscape.length > 0) {
+                        frameId = availableFrames.landscape.shift();
+                    } else if (type === 'portrait' && availableFrames.portrait.length > 0) {
+                        frameId = availableFrames.portrait.shift();
+                    } else if (availableFrames.square.length > 0) {
+                        frameId = availableFrames.square.shift();
+                    } else if (availableFrames.landscape.length > 0) {
+                        frameId = availableFrames.landscape.shift();
+                    }
 
-                        if (frameId) {
-                            const ref = doc(db, 'artifacts', appId, 'public', 'data', 'objects', `a_${frameId}`);
-                            batch.set(ref, { imageUrl: url, t: serverTimestamp(), updatedBy: 'SmartCurator' });
-                            processed++;
-                        }
-                    } catch (err) { console.warn("Image load failed", url); }
+                    if (frameId) {
+                        const ref = doc(db, 'artifacts', appId, 'public', 'data', 'objects', `a_${frameId}`);
+                        // 使用 merge: true 避免覆蓋既有圖片
+                        batch.set(ref, { 
+                            imageUrl: url, 
+                            t: serverTimestamp(),
+                            updatedBy: 'SmartCurator' 
+                        }, { merge: true });
+                        processed++;
+                    }
+                } catch (err) {
+                    console.warn("Image analyze failed", url);
                 }
-                if (processed > 0) await batch.commit();
-            } catch (e) {
-                console.warn("自動佈展失敗 (可能是權限問題):", e);
-                // 不跳 alert 打擾使用者，直接進入
+            }
+            if (processed > 0) {
+                try {
+                    await batch.commit();
+                } catch(e) {
+                    console.error("佈展寫入失敗 (請檢查 Firestore 權限):", e);
+                }
             }
         }
 
         function getImageType(url) {
             return new Promise((resolve) => {
                 const img = new Image();
+                img.referrerPolicy = "no-referrer"; // 確保分析時也不被擋
+                img.crossOrigin = "anonymous";
                 img.onload = () => {
                     if (img.width > img.height * 1.2) resolve('landscape');
                     else if (img.height > img.width * 1.2) resolve('portrait');
@@ -325,7 +316,6 @@
         let moveVector = new THREE.Vector3();
         let lookEuler = new THREE.Euler(0,0,0,'YXZ');
         let joystickActive=false, lookActive=false, lastLookX=0, lastLookY=0;
-        
         let isDragging = false; 
 
         const WALL_T = 1.2;
@@ -459,7 +449,7 @@
             scene.add(frame);
 
             const cGeo = new THREE.PlaneGeometry(w-0.4, h-0.4);
-            const cMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const cMat = new THREE.MeshBasicMaterial({ color: 0x222222 }); // 預設深灰色底，避免載入中全黑
             const canvas = new THREE.Mesh(cGeo, cMat);
             const offset = 0.1; 
             canvas.position.set(x + Math.sin(ry)*offset, y, z + Math.cos(ry)*offset);
@@ -477,7 +467,24 @@
 
         function isMobile() { return /Android|iPhone|iPad/i.test(navigator.userAgent); }
 
-        onAuthStateChanged(auth, u => { if(u) { currentUser=u; statusEl.innerText="● 線上"; statusEl.style.color="#c0a060"; startNetworkSync(); } });
+        async function initAuth() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token);
+                else await signInAnonymously(auth);
+            } catch(e){
+                console.error("Auth Error:", e);
+                statusEl.innerText = "● 連線失敗 (請檢查網域設定)";
+                statusEl.style.color = "red";
+            }
+        }
+        onAuthStateChanged(auth, u => { 
+            if(u) { 
+                currentUser=u; 
+                statusEl.innerText="● 線上"; 
+                statusEl.style.color="#c0a060"; 
+                startNetworkSync(); 
+            } 
+        });
 
         // Network
         function startNetworkSync() {
@@ -503,15 +510,19 @@
             }
             otherPlayers[id].position.set(d.x,0,d.z); otherPlayers[id].rotation.y=d.ry;
         }
+        
         function updateArt(fid, src) {
             const f = artFrames.find(x => x.userData.id===fid);
             if(f && src) {
                 const loader = new THREE.TextureLoader();
-                if(src.startsWith('http')) loader.setCrossOrigin('anonymous');
+                // 強制加入 crossOrigin 設定
+                loader.setCrossOrigin('anonymous');
                 loader.load(src, t=>{ 
                     t.encoding=THREE.sRGBEncoding; 
                     f.material.map=t; 
                     f.material.needsUpdate=true; 
+                }, undefined, (err) => {
+                    console.warn(`Texture load failed for ${fid}:`, err);
                 });
             }
         }
@@ -526,7 +537,7 @@
                     let w=img.width, h=img.height, m=1024;
                     if(w>m||h>m){const s=Math.min(m/w,m/h);w*=s;h*=s;}
                     c.width=w;c.height=h; ctx.drawImage(img,0,0,w,h);
-                    setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'objects', `a_${targetFrame.userData.id}`), {img:c.toDataURL('image/jpeg',0.85), t:serverTimestamp()})
+                    setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'objects', `a_${targetFrame.userData.id}`), {img:c.toDataURL('image/jpeg',0.85), t:serverTimestamp()}, { merge: true })
                     .then(()=>alert('上傳成功'));
                 }; img.src = ev.target.result;
             }; r.readAsDataURL(e.target.files[0]); uploadInput.value="";
