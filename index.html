@@ -449,7 +449,7 @@
             scene.add(frame);
 
             const cGeo = new THREE.PlaneGeometry(w-0.4, h-0.4);
-            const cMat = new THREE.MeshBasicMaterial({ color: 0x222222 }); // 預設深灰色底，避免載入中全黑
+            const cMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
             const canvas = new THREE.Mesh(cGeo, cMat);
             const offset = 0.1; 
             canvas.position.set(x + Math.sin(ry)*offset, y, z + Math.cos(ry)*offset);
