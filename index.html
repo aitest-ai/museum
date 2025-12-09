@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="referrer" content="no-referrer"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>智慧策展美術館 - 經典保存版</title>
+    <title>智慧策展美術館 - 穩定保存版</title>
     <style>
-        /* CSS 保持不變 */
+        /* CSS 樣式區域 */
         body { margin: 0; overflow: hidden; font-family: 'Microsoft JhengHei', sans-serif; background-color: #000; user-select: none; -webkit-user-select: none; }
         
         #start-screen {
@@ -112,13 +112,12 @@
         // --------------------------------------------------------
         let firebaseConfig;
         
-        // ★★★ 關鍵修改：固定 appId，確保圖片重整後還在 ★★★
-        let appId = 'smart-museum-final'; 
+        // ★ 使用 v7 版本號，確保資料庫路徑一致且乾淨
+        let appId = 'smart-museum-v7-classic'; 
 
         if (typeof __firebase_config !== 'undefined') {
             firebaseConfig = JSON.parse(__firebase_config);
         } else {
-            // [GitHub Pages 部署]：請確認這裡的資訊正確
             firebaseConfig = {
                 apiKey: "AIzaSyChb73kxw4a2mJqxzFp6OOtLX_2dG6SSEI",
                 authDomain: "museum-ac9af.firebaseapp.com",
@@ -202,7 +201,7 @@
         const FRAME_OFF = WALL_T / 2 + 0.15; 
 
         // --------------------------------------------------------
-        // 🎨 材質與場景 (回復經典版)
+        // 🎨 材質與場景 (經典場景)
         // --------------------------------------------------------
         function createLuxuryWoodTex() {
             const s=1024;const c=document.createElement('canvas');c.width=s;c.height=s;const ctx=c.getContext('2d');
@@ -256,7 +255,7 @@
             const fill = new THREE.DirectionalLight(0xddeeff, 0.3);
             fill.position.set(-20, 30, -20); scene.add(fill);
 
-            buildOriginalScene(); // 回復到經典場景
+            buildOriginalScene(); // 回到經典佈局
 
             raycaster = new THREE.Raycaster();
             window.addEventListener('resize', onResize);
@@ -273,7 +272,7 @@
         }
 
         // --------------------------------------------------------
-        // 🏛️ 經典場景結構 (Rotunda + Maze)
+        // 🏛️ 經典場景結構 (Round Hall + Maze)
         // --------------------------------------------------------
         function buildOriginalScene() {
             const matWood = new THREE.MeshStandardMaterial({ map: createLuxuryWoodTex(), roughness: 0.4, metalness: 0.1 });
@@ -521,7 +520,7 @@
         promptEl.addEventListener('click', ()=>targetFrame && uploadInput.click());
         
         // --------------------------------------------------------
-        // 🔒 上傳邏輯：限額 3 張 + 永久鎖定
+        // 🔒 上傳邏輯：★ 瘦身版 (512px) 確保不超過 1MB ★
         // --------------------------------------------------------
         uploadInput.addEventListener('change', async e => {
             if(!e.target.files[0] || !targetFrame) return;
@@ -530,7 +529,7 @@
             const docRef = doc(collectionRef, `a_${targetFrame.userData.id}`);
             
             try {
-                // 1. 檢查這個畫框是否已經有畫了
+                // 1. 檢查是否已有圖
                 const snapshot = await getDoc(docRef);
                 if (snapshot.exists() && snapshot.data().img) {
                     const owner = snapshot.data().ownerName || "神秘畫家";
@@ -539,7 +538,7 @@
                     return;
                 }
 
-                // 2. 檢查使用者是否已經上傳超過 3 張
+                // 2. 檢查限額 3 張
                 const q = query(collectionRef, where("ownerId", "==", currentUser.uid));
                 const querySnapshot = await getDocs(q);
                 
@@ -549,24 +548,33 @@
                     return;
                 }
 
-                // 3. 上傳
+                // 3. 上傳 (強制縮圖至 512px 以符合 Firestore 限制)
                 const r = new FileReader();
                 r.onload = ev => {
                     const img = new Image(); img.onload = () => {
                         const c = document.createElement('canvas'); const ctx=c.getContext('2d');
-                        let w=img.width, h=img.height, m=1024;
+                        
+                        // ★★★ 關鍵修改：強制縮小到 512px ★★★
+                        let w=img.width, h=img.height, m=512;
                         if(w>m||h>m){const s=Math.min(m/w,m/h);w*=s;h*=s;}
                         c.width=w;c.height=h; ctx.drawImage(img,0,0,w,h);
                         
+                        // 使用 0.6 品質壓縮，確保 < 1MB
+                        const base64Data = c.toDataURL('image/jpeg', 0.6);
+
                         setDoc(docRef, 
                             { 
-                                img: c.toDataURL('image/jpeg', 0.85), 
+                                img: base64Data, 
                                 ownerName: myName,
                                 ownerId: currentUser.uid, 
                                 uploadTime: serverTimestamp()
                             }, 
                             { merge: true })
-                        .then(() => alert(`✅ 上傳成功！\n這是您的第 ${querySnapshot.size + 1} 幅作品。`));
+                        .then(() => alert(`✅ 上傳成功！\n這是您的第 ${querySnapshot.size + 1} 幅作品。`))
+                        .catch(err => {
+                            console.error(err);
+                            alert("❌ 上傳失敗：圖片可能太複雜導致檔案過大，請換一張試試看！");
+                        });
                     }; img.src = ev.target.result;
                 }; r.readAsDataURL(e.target.files[0]);
 
@@ -632,7 +640,8 @@
 
             Object.keys(otherPlayers).forEach(key => {
                 const p = otherPlayers[key];
-                if(now - p.lastUpdate > 5000) {
+                // ★ 改為 40秒 才移除玩家，避免切換視窗誤判 ★
+                if(now - p.lastUpdate > 40000) {
                     scene.remove(p.group);
                     delete otherPlayers[key];
                     return;
