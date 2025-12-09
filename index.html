@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <title>智慧策展美術館 - 英雄故事版</title>
     <style>
-        /* CSS 保持不變 */
+        /* CSS 樣式保持不變 */
         body { margin: 0; overflow: hidden; font-family: 'Microsoft JhengHei', sans-serif; background-color: #000; user-select: none; -webkit-user-select: none; }
         
         #start-screen {
@@ -111,7 +111,7 @@
         // 🔧 Firebase 設定區
         // --------------------------------------------------------
         let firebaseConfig;
-        let appId = 'smart-museum-v4'; // 更新版本 v4 (新空間架構)
+        let appId = 'smart-museum-v5'; // 更新版本 v5 (回到經典空間 + 新機制)
 
         if (typeof __firebase_config !== 'undefined') {
             firebaseConfig = JSON.parse(__firebase_config);
@@ -200,7 +200,7 @@
         const FRAME_OFF = WALL_T / 2 + 0.15; 
 
         // --------------------------------------------------------
-        // 🎨 材質與場景 (擴建版)
+        // 🎨 材質與場景 (回復經典版)
         // --------------------------------------------------------
         function createLuxuryWoodTex() {
             const s=1024;const c=document.createElement('canvas');c.width=s;c.height=s;const ctx=c.getContext('2d');
@@ -212,7 +212,7 @@
                 ctx.fillRect(x,y,w,h/2);
                 ctx.globalAlpha=0.1;ctx.strokeStyle='#3e2723';ctx.strokeRect(x,y,w,h/2);ctx.globalAlpha=1;
             }}
-            const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(8,8);return t;
+            const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(5,5);return t;
         }
         function createWallTex() {
             const s=512;const c=document.createElement('canvas');c.width=s;c.height=s;const ctx=c.getContext('2d');
@@ -230,7 +230,7 @@
         function init3D() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x181818); 
-            scene.fog = new THREE.Fog(0x181818, 0, 65); // 視野加深
+            scene.fog = new THREE.Fog(0x181818, 0, 55);
 
             camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 100);
             camera.rotation.order = 'YXZ';
@@ -249,12 +249,13 @@
             const ambient = new THREE.AmbientLight(0xffffff, 0.5); 
             scene.add(ambient);
             const sun = new THREE.DirectionalLight(0xfff0dd, 0.7);
-            sun.position.set(30, 60, 30); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+            sun.position.set(20, 50, 20); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
             scene.add(sun);
             const fill = new THREE.DirectionalLight(0xddeeff, 0.3);
             fill.position.set(-20, 30, -20); scene.add(fill);
 
-            buildExpandedScene(); // 使用擴建後的場景
+            // 回復原始場景構建函數
+            buildOriginalScene();
 
             raycaster = new THREE.Raycaster();
             window.addEventListener('resize', onResize);
@@ -271,21 +272,27 @@
         }
 
         // --------------------------------------------------------
-        // 🏛️ 擴建後的場景 (Expanded Scene)
+        // 🏛️ 原始經典場景結構 (圓廳、迷宮、Spotlight)
         // --------------------------------------------------------
-        function buildExpandedScene() {
+        function buildOriginalScene() {
             const matWood = new THREE.MeshStandardMaterial({ map: createLuxuryWoodTex(), roughness: 0.4, metalness: 0.1 });
             const matWall = new THREE.MeshStandardMaterial({ map: createWallTex(), roughness: 0.9 });
             const matCeil = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 1.0 });
             const matRugMain = new THREE.MeshStandardMaterial({ map: createRugTex('#3e2723', '#c0a060'), roughness: 0.95 });
+            const matRugRotunda = new THREE.MeshStandardMaterial({ map: createRugTex('#4e342e', '#8d6e63'), roughness: 0.95 });
 
-            // 1. 地板與天花板擴大 (80m -> 160m)
-            const floor = new THREE.Mesh(new THREE.PlaneGeometry(160, 160), matWood);
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), matWood);
             floor.rotation.x = -Math.PI/2; floor.receiveShadow = true; scene.add(floor);
-            const ceil = new THREE.Mesh(new THREE.PlaneGeometry(160, 160), matCeil);
+            const ceil = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), matCeil);
             ceil.rotation.x = Math.PI/2; ceil.position.y = 8; scene.add(ceil);
 
-            // 輔助函式
+            const addRug = (x, z, w, h, mat) => {
+                const rug = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+                rug.rotation.x = -Math.PI/2; rug.position.set(x, 0.02, z); rug.receiveShadow = true; scene.add(rug);
+            };
+            addRug(0, 0, 12, 16, matRugMain);
+            addRug(28, 0, 10, 10, matRugRotunda);
+
             const addWall = (x, z, w, h, r) => {
                 const geo = new THREE.BoxGeometry(w, h, WALL_T);
                 const mesh = new THREE.Mesh(geo, matWall);
@@ -295,74 +302,56 @@
                 colliders.push(new THREE.Box3().setFromObject(mesh));
             };
 
-            // 2. 原始區域 (中央大廳)
             addWall(0, -12, 20, 8, 0); 
             addWall(0, 12, 20, 8, 0);  
             addWall(-10, 0, 24, 8, Math.PI/2); 
-            addWall(10, 0, 24, 8, Math.PI/2); // 封閉原始東側，改為通往新展廳
+            addWall(10, -8, 8, 8, Math.PI/2);
+            addWall(10, 8, 8, 8, Math.PI/2); 
 
-            // 原始畫框
+            addWall(16, 4, 12, 8, 0);
+            addWall(16, -4, 12, 8, 0);
+            
+            const cx=28, cz=0, rad=9, seg=12;
+            for(let i=0; i<seg; i++) {
+                const a = (i/seg)*Math.PI*2;
+                if(a > Math.PI*0.8 && a < Math.PI*1.2) continue;
+                const w = (Math.PI*2*rad)/seg + 0.6;
+                const wx = cx + Math.cos(a)*rad;
+                const wz = cz + Math.sin(a)*rad;
+                addWall(wx, wz, w, 8, -a+Math.PI/2);
+                addArt(`Rot_${i}`, cx+Math.cos(a)*(rad-0.8), 4, cz+Math.sin(a)*(rad-0.8), -a+Math.PI*1.5, 3.0, 4.2);
+            }
+
+            addWall(-35, 0, 40, 8, Math.PI/2);
+            addWall(-22.5, -20, 25, 8, 0);
+            addWall(-22.5, 20, 25, 8, 0);
+            addWall(-22.5, -5, 15, 8, 0);
+            addWall(-22.5, 5, 15, 8, 0);
+
+            // Frames
             addArt('Hall_S_L', -5, 4, -12 + FRAME_OFF, 0, 4.5, 3.0); 
             addArt('Hall_S_R', 5, 4, -12 + FRAME_OFF, 0, 4.5, 3.0);
             addArt('Hall_N_L', -5, 4, 12 - FRAME_OFF, Math.PI, 4.5, 3.0);
             addArt('Hall_N_R', 5, 4, 12 - FRAME_OFF, Math.PI, 4.5, 3.0);
+
             addArt('Hall_W_1', -10 + FRAME_OFF, 4, -6, Math.PI/2, 3.0, 4.5);
             addArt('Hall_W_2', -10 + FRAME_OFF, 4, 6, Math.PI/2, 3.0, 4.5);
-            addArt('Hall_E_1', 10 - FRAME_OFF, 4, -6, -Math.PI/2, 3.0, 4.5);
-            addArt('Hall_E_2', 10 - FRAME_OFF, 4, 6, -Math.PI/2, 3.0, 4.5);
-
-            // 中央柱
-            addWall(0, 0, 8, 8, 0);
-            addArt('Center_S', 0, 4, 4 + FRAME_OFF, 0, 4, 3);
-            addArt('Center_N', 0, 4, -4 - FRAME_OFF, Math.PI, 4, 3);
-
-            // 3. 北側擴建區 (英雄長廊) - 增加大量牆面
-            // 通道
-            addWall(0, 16, 8, 8, Math.PI/2);
             
-            // 長廊主結構 (z: 20 ~ 50)
-            addWall(-15, 35, 30, 8, Math.PI/2); // 西牆
-            addWall(15, 35, 30, 8, Math.PI/2);  // 東牆
-            addWall(0, 50, 30, 8, 0);           // 北底牆
+            addArt('Hall_E_S', 10 - FRAME_OFF, 4, -8, -Math.PI/2, 3.5, 3.5);
+            addArt('Hall_E_N', 10 - FRAME_OFF, 4, 8, -Math.PI/2, 3.5, 3.5);
 
-            // 長廊隔板 (增加展示面)
-            for(let z=25; z<=45; z+=10) {
-                // 左側隔板
-                addWall(-8, z, 10, 8, 0);
-                addArt(`Ext_L_S_${z}`, -8, 4, z + FRAME_OFF, 0, 3, 3);
-                addArt(`Ext_L_N_${z}`, -8, 4, z - FRAME_OFF, Math.PI, 3, 3);
-                
-                // 右側隔板
-                addWall(8, z, 10, 8, 0);
-                addArt(`Ext_R_S_${z}`, 8, 4, z + FRAME_OFF, 0, 3, 3);
-                addArt(`Ext_R_N_${z}`, 8, 4, z - FRAME_OFF, Math.PI, 3, 3);
-            }
+            addWall(0, 5, 8, 5, 0);
+            addArt('Center_S', 0, 3.5, 5 + FRAME_OFF, 0, 3.5, 2.5);
+            addArt('Center_N', 0, 3.5, 5 - FRAME_OFF, Math.PI, 3.5, 2.5);
 
-            // 長廊牆面畫框
-            addArt('Ext_Wall_W_1', -15 + FRAME_OFF, 4, 25, Math.PI/2, 4, 3);
-            addArt('Ext_Wall_W_2', -15 + FRAME_OFF, 4, 35, Math.PI/2, 4, 3);
-            addArt('Ext_Wall_W_3', -15 + FRAME_OFF, 4, 45, Math.PI/2, 4, 3);
-            
-            addArt('Ext_Wall_E_1', 15 - FRAME_OFF, 4, 25, -Math.PI/2, 4, 3);
-            addArt('Ext_Wall_E_2', 15 - FRAME_OFF, 4, 35, -Math.PI/2, 4, 3);
-            addArt('Ext_Wall_E_3', 15 - FRAME_OFF, 4, 45, -Math.PI/2, 4, 3);
+            addArt('Corr_N', 16, 4, 4 - FRAME_OFF, Math.PI, 2.5, 2.5);
+            addArt('Corr_S', 16, 4, -4 + FRAME_OFF, 0, 2.5, 2.5);
 
-            addArt('Ext_End_1', -8, 4, 50 - FRAME_OFF, Math.PI, 5, 3.5);
-            addArt('Ext_End_2', 8, 4, 50 - FRAME_OFF, Math.PI, 5, 3.5);
-
-            // 4. 南側擴建區 (迷宮花園)
-            addWall(-25, -25, 30, 8, 0);
-            addWall(25, -25, 30, 8, 0);
-            addArt('Maze_1', -25, 4, -25+FRAME_OFF, 0, 4, 3);
-            addArt('Maze_2', 25, 4, -25+FRAME_OFF, 0, 4, 3);
-
-            // 地毯裝飾
-            const addRug = (x, z, w, h) => {
-                const rug = new THREE.Mesh(new THREE.PlaneGeometry(w, h), matRugMain);
-                rug.rotation.x = -Math.PI/2; rug.position.set(x, 0.02, z); rug.receiveShadow = true; scene.add(rug);
-            };
-            addRug(0, 0, 16, 20);
-            addRug(0, 35, 12, 28);
+            addArt('Maze_Far_W', -35 + FRAME_OFF, 4, 0, Math.PI/2, 6.0, 3.5);
+            addArt('Maze_Div_S_N', -22.5, 4, -5 - FRAME_OFF, Math.PI, 3.0, 4.0);
+            addArt('Maze_Div_S_S', -22.5, 4, -5 + FRAME_OFF, 0, 3.5, 3.5);
+            addArt('Maze_Div_N_N', -22.5, 4, 5 - FRAME_OFF, Math.PI, 3.5, 3.5);
+            addArt('Maze_Div_N_S', -22.5, 4, 5 + FRAME_OFF, 0, 3.0, 4.0);
         }
 
         function addArt(id, x, y, z, ry, w=3.4, h=3.4) {
@@ -382,12 +371,11 @@
             scene.add(canvas);
             artFrames.push(canvas);
 
-            // 優化燈光：使用 PointLight 陣列而非 SpotLight 以減少 Draw calls 提升效能
-            if(Math.random() > 0.5) { // 減少一半的燈光數量以保持效能
-                const light = new THREE.PointLight(0xfff0e0, 0.6, 15);
-                light.position.set(x + Math.sin(ry)*3, 7, z + Math.cos(ry)*3);
-                scene.add(light);
-            }
+            const spot = new THREE.SpotLight(0xfff0e0, 1.2);
+            spot.position.set(x + Math.sin(ry)*6, 9, z + Math.cos(ry)*6);
+            spot.target = canvas;
+            spot.angle = 0.5; spot.penumbra = 0.5; spot.distance = 25;
+            scene.add(spot); scene.add(spot.target);
         }
 
         async function initAuth() {
@@ -551,7 +539,6 @@
                 }
 
                 // 2. 檢查使用者是否已經上傳超過 3 張 (教育引導機制)
-                // 查詢資料庫中 ownerId 等於當前使用者 ID 的所有畫作
                 const q = query(collectionRef, where("ownerId", "==", currentUser.uid));
                 const querySnapshot = await getDocs(q);
                 
@@ -574,7 +561,7 @@
                             { 
                                 img: c.toDataURL('image/jpeg', 0.85), 
                                 ownerName: myName,
-                                ownerId: currentUser.uid, // 重要：用來計算數量
+                                ownerId: currentUser.uid, // 用來計算數量
                                 uploadTime: serverTimestamp()
                             }, 
                             { merge: true })
@@ -682,27 +669,26 @@
         }
 
         // --------------------------------------------------------
-        // 🗑️ 管理員功能：一鍵清空美術館 (Reset)
+        // 🗑️ 管理員功能：一鍵清空美術館 (密碼: admin123)
         // --------------------------------------------------------
         window.resetMuseum = async () => {
             const password = prompt("請輸入管理員密碼以清空美術館：");
-            if(password !== "admin123") { // 簡單的密碼保護
+            if(password !== "admin123") {
                 alert("密碼錯誤");
                 return;
             }
             
-            if(!confirm("確定要刪除所有畫作嗎？此動作無法復原！")) return;
+            if(!confirm("警告：此操作將刪除「所有」學生的畫作！\n確定要清空嗎？")) return;
 
             const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'objects');
-            const q = query(collectionRef); // 抓取所有物件
+            const q = query(collectionRef); 
             const snapshot = await getDocs(q);
             
             const batch = writeBatch(db);
             let count = 0;
 
             snapshot.forEach(doc => {
-                // 只刪除畫作 (a_ 開頭)
-                if(doc.id.startsWith('a_')) {
+                if(doc.id.startsWith('a_')) { // 只刪除畫作，保留其他設定
                     batch.delete(doc.ref);
                     count++;
                 }
@@ -710,10 +696,10 @@
 
             if(count > 0) {
                 await batch.commit();
-                alert(`已清空 ${count} 幅畫作，美術館重置完成！`);
-                location.reload(); // 重新整理網頁
+                alert(`成功清除 ${count} 幅作品！美術館已重置。`);
+                location.reload(); 
             } else {
-                alert("目前沒有畫作需要清除。");
+                alert("目前是空的，不需要清除。");
             }
         };
     </script>
