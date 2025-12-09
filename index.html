@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="referrer" content="no-referrer"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>智慧策展美術館 - 畫質優化版</title>
+    <title>智慧策展美術館 - 極速保存版</title>
     <style>
-        /* CSS 樣式區域 (保持不變) */
+        /* CSS 樣式區域 */
         body { margin: 0; overflow: hidden; font-family: 'Microsoft JhengHei', sans-serif; background-color: #000; user-select: none; -webkit-user-select: none; }
         
         #start-screen {
@@ -55,6 +55,7 @@
             backdrop-filter: blur(4px);
         }
 
+        /* 新增：上傳狀態指示器 */
         #upload-status {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background: rgba(0,0,0,0.8); color: #fff; padding: 20px 40px;
@@ -102,7 +103,7 @@
         <div id="status">● 連線中...</div>
         <div id="crosshair"></div>
         <div id="interaction-prompt">點擊上傳作品</div>
-        <div id="upload-status">☁️ 正在上傳至雲端資料庫...<br><span style="font-size:12px; color:#aaa;">(請勿關閉視窗，大型圖片需要一點時間)</span></div>
+        <div id="upload-status">☁️ 正在上傳至雲端資料庫...<br><span style="font-size:12px; color:#aaa;">(請勿關閉視窗)</span></div>
     </div>
 
     <div id="joystick-zone"><div id="joystick-knob"></div></div>
@@ -121,8 +122,8 @@
         // --------------------------------------------------------
         let firebaseConfig;
         
-        // ★★★ 使用 v9 版本號，代表畫質優化版 ★★★
-        let appId = 'smart-museum-v9-quality'; 
+        // ★★★ 使用 v8-lite 版本號，確保是一個乾淨且穩定的空間 ★★★
+        let appId = 'smart-museum-v8-lite'; 
 
         if (typeof __firebase_config !== 'undefined') {
             firebaseConfig = JSON.parse(__firebase_config);
@@ -161,7 +162,7 @@
         const statusEl = document.getElementById('status');
         const promptEl = document.getElementById('interaction-prompt');
         const uploadInput = document.getElementById('upload-input');
-        const uploadStatus = document.getElementById('upload-status');
+        const uploadStatus = document.getElementById('upload-status'); // 新增
         const joystickZone = document.getElementById('joystick-zone');
         const joystickKnob = document.getElementById('joystick-knob');
         const crosshair = document.getElementById('crosshair');
@@ -528,7 +529,7 @@
         promptEl.addEventListener('click', ()=>targetFrame && uploadInput.click());
         
         // --------------------------------------------------------
-        // 🔒 上傳邏輯：★ 畫質優化版 (800px, 0.75) ★
+        // 🔒 上傳邏輯：★ 瘦身版 (256px) 確保不超過 1MB ★
         // --------------------------------------------------------
         uploadInput.addEventListener('change', async e => {
             if(!e.target.files[0] || !targetFrame) return;
@@ -559,19 +560,19 @@
                 // 顯示「雲端上傳中」UI
                 uploadStatus.style.display = 'block';
 
-                // 3. 上傳 (優化參數：800px, 0.75品質)
+                // 3. 上傳 (強制縮圖至 256px 以確保 100% 成功率)
                 const r = new FileReader();
                 r.onload = ev => {
                     const img = new Image(); img.onload = () => {
                         const c = document.createElement('canvas'); const ctx=c.getContext('2d');
                         
-                        // ★★★ 關鍵修改：提升到 800px ★★★
-                        let w=img.width, h=img.height, m=800;
+                        // ★★★ 關鍵修改：強制縮小到 256px，極小檔案 ★★★
+                        let w=img.width, h=img.height, m=256;
                         if(w>m||h>m){const s=Math.min(m/w,m/h);w*=s;h*=s;}
                         c.width=w;c.height=h; ctx.drawImage(img,0,0,w,h);
                         
-                        // 使用 0.75 品質，平衡畫質與大小
-                        const base64Data = c.toDataURL('image/jpeg', 0.75);
+                        // 使用 0.5 品質壓縮，確保 < 500KB
+                        const base64Data = c.toDataURL('image/jpeg', 0.5);
 
                         setDoc(docRef, 
                             { 
@@ -583,13 +584,12 @@
                             { merge: true })
                         .then(() => {
                             uploadStatus.style.display = 'none'; // 隱藏上傳中
-                            alert(`✅ 上傳成功！\n\n大家現在都看得到你的傑作了！`);
+                            alert(`✅ 上傳成功！\n\n雲端保存完畢，大家現在都看得到了！`);
                         })
                         .catch(err => {
                             uploadStatus.style.display = 'none';
                             console.error(err);
-                            // 如果真的太大了，Firebase 會報錯，這裡捕捉錯誤提示
-                            alert("❌ 上傳失敗！\n\n這張圖片的細節太多，超過了雲端限制。\n請試著換一張比較簡單的圖片，或是截圖後再上傳。");
+                            alert("❌ 雲端資料庫拒絕存取！\n可能原因：圖片過大或網路不穩。\n(系統已嘗試縮圖，若仍失敗請聯繫管理員)");
                         });
                     }; img.src = ev.target.result;
                 }; r.readAsDataURL(e.target.files[0]);
@@ -657,7 +657,7 @@
 
             Object.keys(otherPlayers).forEach(key => {
                 const p = otherPlayers[key];
-                // 40秒 移除機制
+                // ★ 改為 40秒 才移除玩家，避免切換視窗誤判 ★
                 if(now - p.lastUpdate > 40000) {
                     scene.remove(p.group);
                     delete otherPlayers[key];
