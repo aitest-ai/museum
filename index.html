@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="referrer" content="no-referrer"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>智慧策展美術館 - 穩定保存版</title>
+    <title>智慧策展美術館 - 多人互動版</title>
     <style>
-        /* CSS 樣式區域 */
+        /* CSS 保持不變，包含名字輸入框 */
         body { margin: 0; overflow: hidden; font-family: 'Microsoft JhengHei', sans-serif; background-color: #000; user-select: none; -webkit-user-select: none; }
         
         #start-screen {
@@ -83,7 +83,7 @@
 
     <div id="start-screen">
         <h1>THE GALLERY</h1>
-        <p class="subtitle">英雄故事策展計畫</p>
+        <p class="subtitle">多人協作策展空間</p>
         
         <input type="text" id="name-input" placeholder="請輸入您的名稱" maxlength="10" autocomplete="off">
         <button id="start-btn">進入展場</button>
@@ -105,19 +105,18 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, deleteDoc, getDoc, getDocs, query, where, onSnapshot, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --------------------------------------------------------
         // 🔧 Firebase 設定區
         // --------------------------------------------------------
         let firebaseConfig;
-        
-        // ★ 使用 v7 版本號，確保資料庫路徑一致且乾淨
-        let appId = 'smart-museum-v7-classic'; 
+        let appId = 'smart-museum-v2'; // 保持 v2 以測試多人功能
 
         if (typeof __firebase_config !== 'undefined') {
             firebaseConfig = JSON.parse(__firebase_config);
         } else {
+            // [GitHub Pages 部署]：請確認這裡的資訊正確
             firebaseConfig = {
                 apiKey: "AIzaSyChb73kxw4a2mJqxzFp6OOtLX_2dG6SSEI",
                 authDomain: "museum-ac9af.firebaseapp.com",
@@ -201,7 +200,7 @@
         const FRAME_OFF = WALL_T / 2 + 0.15; 
 
         // --------------------------------------------------------
-        // 🎨 材質與場景 (經典場景)
+        // 🎨 原始材質與場景還原
         // --------------------------------------------------------
         function createLuxuryWoodTex() {
             const s=1024;const c=document.createElement('canvas');c.width=s;c.height=s;const ctx=c.getContext('2d');
@@ -255,7 +254,8 @@
             const fill = new THREE.DirectionalLight(0xddeeff, 0.3);
             fill.position.set(-20, 30, -20); scene.add(fill);
 
-            buildOriginalScene(); // 回到經典佈局
+            // 使用原始場景構建函數
+            buildOriginalScene();
 
             raycaster = new THREE.Raycaster();
             window.addEventListener('resize', onResize);
@@ -272,7 +272,7 @@
         }
 
         // --------------------------------------------------------
-        // 🏛️ 經典場景結構 (Round Hall + Maze)
+        // 🏛️ 原始場景結構 (包含迷宮與圓廳)
         // --------------------------------------------------------
         function buildOriginalScene() {
             const matWood = new THREE.MeshStandardMaterial({ map: createLuxuryWoodTex(), roughness: 0.4, metalness: 0.1 });
@@ -328,7 +328,7 @@
             addWall(-22.5, -5, 15, 8, 0);
             addWall(-22.5, 5, 15, 8, 0);
 
-            // Frames
+            // Frames - 原始配置，但移除 Pool 邏輯
             addArt('Hall_S_L', -5, 4, -12 + FRAME_OFF, 0, 4.5, 3.0); 
             addArt('Hall_S_R', 5, 4, -12 + FRAME_OFF, 0, 4.5, 3.0);
             addArt('Hall_N_L', -5, 4, 12 - FRAME_OFF, Math.PI, 4.5, 3.0);
@@ -354,6 +354,7 @@
             addArt('Maze_Div_N_S', -22.5, 4, 5 + FRAME_OFF, 0, 3.0, 4.0);
         }
 
+        // 修改後的 addArt：不從 Pool 拿圖，而是建立空白框
         function addArt(id, x, y, z, ry, w=3.4, h=3.4) {
             const fGeo = new THREE.BoxGeometry(w, h, 0.15);
             const fMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.6, metalness: 0.2 });
@@ -362,7 +363,7 @@
             scene.add(frame);
 
             const cGeo = new THREE.PlaneGeometry(w-0.4, h-0.4);
-            const cMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const cMat = new THREE.MeshBasicMaterial({ color: 0xffffff }); // 預設白底
             const canvas = new THREE.Mesh(cGeo, cMat);
             const offset = 0.1; 
             canvas.position.set(x + Math.sin(ry)*offset, y, z + Math.cos(ry)*offset);
@@ -371,6 +372,7 @@
             scene.add(canvas);
             artFrames.push(canvas);
 
+            // 原始的投射燈
             const spot = new THREE.SpotLight(0xfff0e0, 1.2);
             spot.position.set(x + Math.sin(ry)*6, 9, z + Math.cos(ry)*6);
             spot.target = canvas;
@@ -518,72 +520,22 @@
         }
 
         promptEl.addEventListener('click', ()=>targetFrame && uploadInput.click());
-        
-        // --------------------------------------------------------
-        // 🔒 上傳邏輯：★ 瘦身版 (512px) 確保不超過 1MB ★
-        // --------------------------------------------------------
-        uploadInput.addEventListener('change', async e => {
-            if(!e.target.files[0] || !targetFrame) return;
-
-            const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'objects');
-            const docRef = doc(collectionRef, `a_${targetFrame.userData.id}`);
-            
-            try {
-                // 1. 檢查是否已有圖
-                const snapshot = await getDoc(docRef);
-                if (snapshot.exists() && snapshot.data().img) {
-                    const owner = snapshot.data().ownerName || "神秘畫家";
-                    alert(`⛔ 這裡不能畫喔！\n\n這幅畫是【${owner}】的作品。\n請找找看其他的空白畫框吧！`);
-                    uploadInput.value = "";
-                    return;
-                }
-
-                // 2. 檢查限額 3 張
-                const q = query(collectionRef, where("ownerId", "==", currentUser.uid));
-                const querySnapshot = await getDocs(q);
-                
-                if (querySnapshot.size >= 3) {
-                    alert(`🎨 您已經展出 3 幅作品囉！\n\n請先當一個最棒的觀眾，\n也去看看別的畫家分享的英雄故事，\n給他們一點鼓勵吧！👏`);
-                    uploadInput.value = "";
-                    return;
-                }
-
-                // 3. 上傳 (強制縮圖至 512px 以符合 Firestore 限制)
-                const r = new FileReader();
-                r.onload = ev => {
-                    const img = new Image(); img.onload = () => {
-                        const c = document.createElement('canvas'); const ctx=c.getContext('2d');
-                        
-                        // ★★★ 關鍵修改：強制縮小到 512px ★★★
-                        let w=img.width, h=img.height, m=512;
-                        if(w>m||h>m){const s=Math.min(m/w,m/h);w*=s;h*=s;}
-                        c.width=w;c.height=h; ctx.drawImage(img,0,0,w,h);
-                        
-                        // 使用 0.6 品質壓縮，確保 < 1MB
-                        const base64Data = c.toDataURL('image/jpeg', 0.6);
-
-                        setDoc(docRef, 
-                            { 
-                                img: base64Data, 
-                                ownerName: myName,
-                                ownerId: currentUser.uid, 
-                                uploadTime: serverTimestamp()
-                            }, 
-                            { merge: true })
-                        .then(() => alert(`✅ 上傳成功！\n這是您的第 ${querySnapshot.size + 1} 幅作品。`))
-                        .catch(err => {
-                            console.error(err);
-                            alert("❌ 上傳失敗：圖片可能太複雜導致檔案過大，請換一張試試看！");
-                        });
-                    }; img.src = ev.target.result;
-                }; r.readAsDataURL(e.target.files[0]);
-
-            } catch (err) {
-                console.error("檢查失敗", err);
-                alert("網路不穩，請稍後再試");
-            }
-            
-            uploadInput.value="";
+        uploadInput.addEventListener('change', e => {
+            if(!e.target.files[0]||!targetFrame) return;
+            const r = new FileReader();
+            r.onload = ev => {
+                const img = new Image(); img.onload = () => {
+                    const c = document.createElement('canvas'); const ctx=c.getContext('2d');
+                    let w=img.width, h=img.height, m=1024;
+                    if(w>m||h>m){const s=Math.min(m/w,m/h);w*=s;h*=s;}
+                    c.width=w;c.height=h; ctx.drawImage(img,0,0,w,h);
+                    
+                    setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'objects', `a_${targetFrame.userData.id}`), 
+                        { img:c.toDataURL('image/jpeg',0.85) }, 
+                        { merge: true })
+                    .then(()=>alert('上傳成功！大家都能看到你的作品了。'));
+                }; img.src = ev.target.result;
+            }; r.readAsDataURL(e.target.files[0]); uploadInput.value="";
         });
 
         function setupControls() {
@@ -640,8 +592,7 @@
 
             Object.keys(otherPlayers).forEach(key => {
                 const p = otherPlayers[key];
-                // ★ 改為 40秒 才移除玩家，避免切換視窗誤判 ★
-                if(now - p.lastUpdate > 40000) {
+                if(now - p.lastUpdate > 5000) {
                     scene.remove(p.group);
                     delete otherPlayers[key];
                     return;
@@ -677,41 +628,6 @@
         function onResize() {
             camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth,window.innerHeight);
         }
-
-        // --------------------------------------------------------
-        // 🗑️ 管理員功能：一鍵清空美術館 (密碼: admin123)
-        // --------------------------------------------------------
-        window.resetMuseum = async () => {
-            const password = prompt("請輸入管理員密碼以清空美術館：");
-            if(password !== "admin123") {
-                alert("密碼錯誤");
-                return;
-            }
-            
-            if(!confirm("警告：此操作將刪除「所有」學生的畫作！\n確定要清空嗎？")) return;
-
-            const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'objects');
-            const q = query(collectionRef); 
-            const snapshot = await getDocs(q);
-            
-            const batch = writeBatch(db);
-            let count = 0;
-
-            snapshot.forEach(doc => {
-                if(doc.id.startsWith('a_')) { 
-                    batch.delete(doc.ref);
-                    count++;
-                }
-            });
-
-            if(count > 0) {
-                await batch.commit();
-                alert(`成功清除 ${count} 幅作品！美術館已重置。`);
-                location.reload(); 
-            } else {
-                alert("目前是空的，不需要清除。");
-            }
-        };
     </script>
 </body>
 </html>
