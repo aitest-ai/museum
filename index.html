@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>智慧策展美術館 - v21 圓廳修復版</title>
+    <title>智慧策展美術館 - v22 最終修復版</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Microsoft JhengHei', sans-serif; background-color: #000; user-select: none; -webkit-user-select: none; }
         
@@ -131,7 +131,7 @@
 
         // --------------------------------------------------------
         
-        let appId = 'smart-museum-v21-fixed'; 
+        let appId = 'smart-museum-v22-fix'; // 更新版本號
         let app, auth, db;
 
         try {
@@ -140,7 +140,7 @@
             db = getFirestore(app);
         } catch (e) {
             console.error("Firebase 初始化失敗:", e);
-            alert("Firebase 設定有誤，請檢查 Config。");
+            alert("Firebase 設定有誤，請按 F12 檢查 Config。");
         }
 
         let currentUser = null;
@@ -170,7 +170,6 @@
         startBtn.addEventListener('click', async () => {
             if (!nameInput.value.trim()) return;
             myName = nameInput.value.trim();
-            
             startBtn.style.display = 'none';
             nameInput.style.display = 'none';
             loadingText.innerText = "正在連線到美術館...";
@@ -223,7 +222,7 @@
             camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 100);
             camera.rotation.order = 'YXZ';
             
-            // ★ 人物放大1.5倍，攝影機高度也提升 (1.7 * 1.5 = 2.55)
+            // ★ 人物放大，攝影機高度提升
             camera.position.set(0, 2.55, 0); 
 
             renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
@@ -312,7 +311,10 @@
             addWall(0, -12, 20, 8, 0); addWall(0, 12, 20, 8, 0);
             addWall(-10, 0, 24, 8, Math.PI/2); addWall(10, 8, 8, 8, Math.PI/2); addWall(10, -8, 8, 8, Math.PI/2);
             
-            // ★ 修復：圓形展廳畫框位置
+            // ★ 修復1：補回通往走廊的牆壁
+            addWall(16, 4, 12, 8, 0); 
+            addWall(16, -4, 12, 8, 0);
+
             const cx=28, cz=0, rad=9, seg=12;
             for(let i=0; i<seg; i++) {
                 const a = (i/seg)*Math.PI*2;
@@ -321,8 +323,6 @@
                 const wx = cx + Math.cos(a)*rad;
                 const wz = cz + Math.sin(a)*rad;
                 addWall(wx, wz, w, 8, -a+Math.PI/2);
-                
-                // 修正浮空：將 (rad-0.8) 改為 (rad-0.65)，貼齊牆面 (9 - 1.2/2 - 0.05)
                 addArt(`Rot_${i}`, cx+Math.cos(a)*(rad-0.65), 4, cz+Math.sin(a)*(rad-0.65), -a+Math.PI*1.5, 3.0, 4.2);
             }
 
@@ -344,6 +344,8 @@
             addWall(0, 5, 8, 5, 0);
             addArt('Center_S', 0, 3.5, 5 + FRAME_OFF, 0, 3.5, 2.5);
             addArt('Center_N', 0, 3.5, 5 - FRAME_OFF, Math.PI, 3.5, 2.5);
+            
+            // 走廊畫作現在有牆壁可以掛了
             addArt('Corr_N', 16, 4, 4 - FRAME_OFF, Math.PI, 2.5, 2.5);
             addArt('Corr_S', 16, 4, -4 + FRAME_OFF, 0, 2.5, 2.5);
 
@@ -419,27 +421,16 @@
 
             setInterval(() => {
                 if(!currentUser) return;
-                const p = camera.position;
-                const ry = camera.rotation.y;
-
+                const p = camera.position; const ry = camera.rotation.y;
                 if (Math.abs(p.x - lastX) > 0.1 || Math.abs(p.z - lastZ) > 0.1) {
                     setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'objects', `p_${currentUser.uid}`), 
-                        {
-                            x: parseFloat(p.x.toFixed(2)), 
-                            y: parseFloat(p.y.toFixed(2)), 
-                            z: parseFloat(p.z.toFixed(2)), 
-                            ry: parseFloat(ry.toFixed(2)), 
-                            name: myName, 
-                            c: '#' + myColor,
-                            t: Date.now() 
-                        }
+                        { x: parseFloat(p.x.toFixed(2)), z: parseFloat(p.z.toFixed(2)), ry: parseFloat(ry.toFixed(2)), name: myName, c:'#'+myColor, t: Date.now() }
                     ).catch(e => console.warn("位置同步失敗", e));
                     lastX = p.x; lastZ = p.z; lastRy = ry;
                 }
             }, 500);
         }
 
-        // --- 人物模型 (放大 1.5 倍) ---
         function createMinecraftChar(colorHex) {
             const group = new THREE.Group();
             const color = new THREE.Color(colorHex);
@@ -475,7 +466,7 @@
 
             group.traverse(o => { if(o.isMesh) { o.castShadow = true; o.receiveShadow = true; }});
             
-            // ★ 修改：人物放大 1.5 倍
+            // 人物放大
             group.scale.set(1.5, 1.5, 1.5);
 
             return { group, armL: armLGroup, armR: armRGroup, legL: legLGroup, legR: legRGroup, head };
@@ -492,7 +483,6 @@
             const tex = new THREE.CanvasTexture(canvas);
             const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
             const sprite = new THREE.Sprite(mat);
-            // 標籤也跟著放大
             sprite.scale.set(1.5 * 1.5, 0.375 * 1.5, 1);
             sprite.position.y = 2.1; 
             return sprite;
@@ -523,7 +513,7 @@
         function updateArt(fid, src) {
             const f = artFrames.find(x => x.userData.id===fid);
             if(f && src) {
-                // ★ 這裡開啟跨域存取，確保 Cloudinary 圖片能顯示
+                // ★ 修復2：強制加入跨域設定，確保圖片顯示
                 const loader = new THREE.TextureLoader();
                 loader.setCrossOrigin('anonymous');
                 loader.load(src, t=>{ 
@@ -531,19 +521,15 @@
                     f.material.map=t; 
                     f.material.color.setHex(0xffffff);
                     f.material.needsUpdate=true; 
-                });
+                }, undefined, (e) => console.warn("圖片載入警告", e));
             }
         }
 
         promptEl.addEventListener('click', ()=>targetFrame && uploadInput.click());
         
-        // --------------------------------------------------------
-        // ★ Cloudinary 上傳邏輯 ★
-        // --------------------------------------------------------
         uploadInput.addEventListener('change', async e => {
             if(!e.target.files[0] || !targetFrame) return;
 
-            // 1. 檢查權限 (Firestore)
             const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'objects', `a_${targetFrame.userData.id}`);
             
             try {
@@ -554,7 +540,6 @@
                     return;
                 }
 
-                // 2. 檢查限額
                 const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'objects');
                 const q = query(collectionRef, where("ownerId", "==", currentUser.uid));
                 const querySnapshot = await getDocs(q);
