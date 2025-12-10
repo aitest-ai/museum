@@ -4,9 +4,8 @@
     <meta charset="UTF-8">
     <meta name="referrer" content="no-referrer"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>智慧策展美術館 - v13 除錯修復版</title>
+    <title>智慧策展美術館 - v14 輕量必存版</title>
     <style>
-        /* CSS 樣式區域 */
         body { margin: 0; overflow: hidden; font-family: 'Microsoft JhengHei', sans-serif; background-color: #000; user-select: none; -webkit-user-select: none; }
         
         #start-screen {
@@ -55,6 +54,7 @@
             backdrop-filter: blur(4px);
         }
 
+        /* 上傳狀態提示 */
         #upload-status {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background: rgba(0,0,0,0.9); color: #fff; padding: 20px 40px;
@@ -120,17 +120,15 @@
         // --------------------------------------------------------
         let firebaseConfig;
         
-        // ★ 使用 v13-debug 作為版本號，避開舊的壞資料
-        let appId = 'smart-museum-v13-debug'; 
+        // ★ v14-lite: 使用這個新 ID 確保資料庫乾淨
+        let appId = 'smart-museum-v14-lite'; 
 
         if (typeof __firebase_config !== 'undefined') {
             firebaseConfig = JSON.parse(__firebase_config);
         } else {
-            // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
-            // 請在此處填入你新專案的 Config！不要留著中文！
-            // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+            // ★★★ 請務必填入你的 Config ★★★
             firebaseConfig = {
-                  apiKey: "AIzaSyDI14orpnwyFuayclLhdRkzdTrts4nGgM4",
+                apiKey: "AIzaSyDI14orpnwyFuayclLhdRkzdTrts4nGgM4",
                   authDomain: "museum01-7e149.firebaseapp.com",
                   projectId: "museum01-7e149",
                   storageBucket: "museum01-7e149.firebasestorage.app",
@@ -147,7 +145,7 @@
             db = getFirestore(app);
         } catch (e) {
             console.error("Firebase 初始化失敗:", e);
-            alert("⚠️ 初始化失敗：請檢查 Config 是否填寫正確！");
+            alert("⚠️ 錯誤：Config 設定有誤，請按 F12 檢查。");
         }
 
         let currentUser = null;
@@ -183,7 +181,7 @@
             loadingText.innerText = "正在連線到美術館...";
 
             if(!isRunning) {
-                // 修復：先定義 onResize 再執行
+                // 修復：先定義 resize 監聽
                 window.addEventListener('resize', onResize);
                 init3D();
                 isRunning = true;
@@ -215,7 +213,7 @@
         const WALL_T = 1.2;
         const FRAME_OFF = WALL_T / 2 + 0.15; 
 
-        // 🟢 修復：將 onResize 移動到這裡，確保全域可見
+        // 全域函式
         function onResize() {
             if(camera && renderer) {
                 camera.aspect = window.innerWidth / window.innerHeight; 
@@ -279,7 +277,6 @@
             buildOriginalScene();
 
             raycaster = new THREE.Raycaster();
-            // onResize 已經在上面綁定過了
             setupControls();
             
             window.addEventListener('beforeunload', () => {
@@ -422,6 +419,7 @@
         function startNetworkSync() {
             let lastX=0, lastZ=0, lastRy=0;
             
+            // 監聽畫作更新
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'objects'), s => {
                 s.docChanges().forEach(c => {
                     const d = c.doc.data(); 
@@ -434,6 +432,7 @@
                         }
                     } else {
                         if(id.startsWith('a_')) {
+                            // 收到畫作更新，立即顯示
                             updateArt(id.replace('a_',''), d.img);
                         }
                         if(id.startsWith('p_') && id !== `p_${currentUser.uid}`) {
@@ -443,6 +442,7 @@
                 });
             });
 
+            // 定期同步位置
             setInterval(() => {
                 if(!currentUser) return;
                 const p = camera.position;
@@ -459,7 +459,7 @@
                             c: '#' + myColor,
                             t: Date.now() 
                         }
-                    ).catch(e => console.warn("位置同步失敗", e));
+                    ).catch(e => console.warn("Sync skipped:", e));
                     lastX = p.x; lastZ = p.z; lastRy = ry;
                 }
             }, 500);
@@ -532,6 +532,10 @@
                 };
             }
             const p = otherPlayers[id];
+            
+            // 防呆檢查
+            if (!p || !p.group) return;
+
             p.targetPos.set(d.x, 0, d.z);
             p.targetRot = d.ry;
             p.lastUpdate = Date.now(); 
@@ -554,8 +558,9 @@
         promptEl.addEventListener('click', ()=>targetFrame && uploadInput.click());
         
         // --------------------------------------------------------
-        // 🔒 上傳邏輯：★ 智慧壓縮引擎 v12 ★
+        // 🔒 上傳邏輯：★ 輕量化壓縮 (400px / 0.5) ★
         // --------------------------------------------------------
+        // 輔助函式：壓縮圖片
         async function compressImage(img, maxWidth, quality) {
             const c = document.createElement('canvas');
             const ctx = c.getContext('2d');
@@ -566,6 +571,7 @@
             }
             c.width = w; c.height = h;
             ctx.drawImage(img, 0, 0, w, h);
+            // 強制轉為 JPEG，0.5 品質 (最安全)
             return c.toDataURL('image/jpeg', quality);
         }
 
@@ -575,7 +581,6 @@
             const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'objects', `a_${targetFrame.userData.id}`);
             
             try {
-                // 1. 檢查圖
                 const snapshot = await getDoc(docRef);
                 if (snapshot.exists() && snapshot.data().img) {
                     alert(`⛔ 這裡不能畫喔！這幅畫已經有主人了。`);
@@ -583,18 +588,16 @@
                     return;
                 }
 
-                // 2. 檢查限額
                 const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'objects');
                 const q = query(collectionRef, where("ownerId", "==", currentUser.uid));
                 const querySnapshot = await getDocs(q);
                 if (querySnapshot.size >= 3) {
-                    alert(`🎨 您已經展出 3 幅作品囉！請去欣賞別人的作品吧！`);
+                    alert(`🎨 您已經展出 3 幅作品囉！\n請先去欣賞別人的作品吧！`);
                     uploadInput.value = "";
                     return;
                 }
 
-                // 3. 壓縮與上傳
-                uploadStatus.innerHTML = "☁️ 雲端存檔中...<br>正在為您調整圖片大小...";
+                uploadStatus.innerHTML = "☁️ 圖片壓縮上傳中...<br><span style='font-size:12px'>(請稍候...)</span>";
                 uploadStatus.style.display = 'block';
 
                 const r = new FileReader();
@@ -603,20 +606,14 @@
                     img.onload = async () => {
                         let finalData = null;
                         
-                        // 壓縮循環
-                        finalData = await compressImage(img, 800, 0.7);
-                        if(finalData.length > 900000) {
-                            console.warn("第一次壓縮仍過大，嘗試降畫質...");
-                            finalData = await compressImage(img, 800, 0.5);
-                        }
-                        if(finalData.length > 900000) {
-                            console.warn("第二次壓縮仍過大，嘗試縮圖...");
-                            finalData = await compressImage(img, 512, 0.6);
-                        }
+                        // ★ 第一次就強力壓縮：400px, 0.5 品質 (約 50-100KB)
+                        // 這能保證絕對不會超過 Firebase 的 1MB 限制
+                        finalData = await compressImage(img, 400, 0.5); 
 
-                        if(finalData.length > 950000) {
+                        // 雙重保險檢查
+                        if(finalData.length > 900000) {
                             uploadStatus.style.display = 'none';
-                            alert("❌ 圖片實在太大了！請換一張簡單一點的圖片。");
+                            alert("❌ 圖片實在太大了！請換一張。");
                             return;
                         }
 
@@ -628,12 +625,13 @@
                         }, { merge: true })
                         .then(() => {
                             uploadStatus.style.display = 'none'; 
-                            alert(`✅ 上傳成功！`);
+                            alert(`✅ 上傳成功！\n作品已安全存入雲端。`);
+                            // 本地不直接更新，等待 Firebase onSnapshot 回傳
                         })
                         .catch(err => {
                             uploadStatus.style.display = 'none';
                             console.error(err);
-                            alert(`❌ 存檔失敗：${err.message}`);
+                            alert(`❌ 存檔失敗：${err.code || err.message}`);
                         });
                     }; 
                     img.src = ev.target.result;
@@ -702,7 +700,7 @@
             Object.keys(otherPlayers).forEach(key => {
                 const p = otherPlayers[key];
                 
-                // 🟢 關鍵修復：確保 p.group 存在才操作
+                // 檢查物件是否存在
                 if (!p || !p.group) return;
 
                 if(now - p.lastUpdate > 40000) {
