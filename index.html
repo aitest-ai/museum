@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="referrer" content="no-referrer"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>智慧策展美術館 - v12 智慧壓縮版</title>
+    <title>智慧策展美術館 - v13 除錯修復版</title>
     <style>
+        /* CSS 樣式區域 */
         body { margin: 0; overflow: hidden; font-family: 'Microsoft JhengHei', sans-serif; background-color: #000; user-select: none; -webkit-user-select: none; }
         
         #start-screen {
@@ -119,15 +120,17 @@
         // --------------------------------------------------------
         let firebaseConfig;
         
-        // ★ 使用 v12 作為版本號，這是一個全新的乾淨空間
-        let appId = 'smart-museum-v12-auto-compress'; 
+        // ★ 使用 v13-debug 作為版本號，避開舊的壞資料
+        let appId = 'smart-museum-v13-debug'; 
 
         if (typeof __firebase_config !== 'undefined') {
             firebaseConfig = JSON.parse(__firebase_config);
         } else {
-            // ★ 請確認這裡是你新專案的 Config ★
+            // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+            // 請在此處填入你新專案的 Config！不要留著中文！
+            // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
             firebaseConfig = {
-                apiKey: "AIzaSyDI14orpnwyFuayclLhdRkzdTrts4nGgM4",
+                  apiKey: "AIzaSyDI14orpnwyFuayclLhdRkzdTrts4nGgM4",
                   authDomain: "museum01-7e149.firebaseapp.com",
                   projectId: "museum01-7e149",
                   storageBucket: "museum01-7e149.firebasestorage.app",
@@ -144,7 +147,7 @@
             db = getFirestore(app);
         } catch (e) {
             console.error("Firebase 初始化失敗:", e);
-            alert("⚠️ 初始化失敗：請檢查 Config 是否正確");
+            alert("⚠️ 初始化失敗：請檢查 Config 是否填寫正確！");
         }
 
         let currentUser = null;
@@ -180,6 +183,8 @@
             loadingText.innerText = "正在連線到美術館...";
 
             if(!isRunning) {
+                // 修復：先定義 onResize 再執行
+                window.addEventListener('resize', onResize);
                 init3D();
                 isRunning = true;
                 await initAuth();
@@ -209,6 +214,15 @@
 
         const WALL_T = 1.2;
         const FRAME_OFF = WALL_T / 2 + 0.15; 
+
+        // 🟢 修復：將 onResize 移動到這裡，確保全域可見
+        function onResize() {
+            if(camera && renderer) {
+                camera.aspect = window.innerWidth / window.innerHeight; 
+                camera.updateProjectionMatrix(); 
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+        }
 
         function createLuxuryWoodTex() {
             const s=512;const c=document.createElement('canvas');c.width=s;c.height=s;const ctx=c.getContext('2d');
@@ -265,7 +279,7 @@
             buildOriginalScene();
 
             raycaster = new THREE.Raycaster();
-            window.addEventListener('resize', onResize);
+            // onResize 已經在上面綁定過了
             setupControls();
             
             window.addEventListener('beforeunload', () => {
@@ -398,7 +412,7 @@
                 statusEl.innerText=`● ${myName} (線上)`; 
                 statusEl.style.color="#c0a060"; 
                 
-                // ★ 關鍵：登入後立刻傳送位置，解決「進場看不到人」的問題
+                // 登入後立刻傳送位置
                 setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'objects', `p_${u.uid}`), 
                     { x:0, y:1.7, z:0, ry:0, name:myName, c:'#'+myColor, t:Date.now() }
                 ).then(startNetworkSync);
@@ -542,7 +556,6 @@
         // --------------------------------------------------------
         // 🔒 上傳邏輯：★ 智慧壓縮引擎 v12 ★
         // --------------------------------------------------------
-        // 輔助函式：壓縮並回傳 Base64
         async function compressImage(img, maxWidth, quality) {
             const c = document.createElement('canvas');
             const ctx = c.getContext('2d');
@@ -553,7 +566,6 @@
             }
             c.width = w; c.height = h;
             ctx.drawImage(img, 0, 0, w, h);
-            // 這裡強制使用 jpeg，相容性最高
             return c.toDataURL('image/jpeg', quality);
         }
 
@@ -563,7 +575,7 @@
             const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'objects', `a_${targetFrame.userData.id}`);
             
             try {
-                // 1. 檢查是否已有圖
+                // 1. 檢查圖
                 const snapshot = await getDoc(docRef);
                 if (snapshot.exists() && snapshot.data().img) {
                     alert(`⛔ 這裡不能畫喔！這幅畫已經有主人了。`);
@@ -581,7 +593,7 @@
                     return;
                 }
 
-                // 3. 智慧壓縮上傳
+                // 3. 壓縮與上傳
                 uploadStatus.innerHTML = "☁️ 雲端存檔中...<br>正在為您調整圖片大小...";
                 uploadStatus.style.display = 'block';
 
@@ -591,30 +603,23 @@
                     img.onload = async () => {
                         let finalData = null;
                         
-                        // --- 智慧壓縮迴圈 ---
-                        // 嘗試 1: 800px, 0.7 品質
+                        // 壓縮循環
                         finalData = await compressImage(img, 800, 0.7);
-                        
-                        // 如果太大 (>900KB)，嘗試 2: 降畫質
                         if(finalData.length > 900000) {
-                            console.warn("圖片過大，進行第二次壓縮...");
+                            console.warn("第一次壓縮仍過大，嘗試降畫質...");
                             finalData = await compressImage(img, 800, 0.5);
                         }
-
-                        // 如果還是太大，嘗試 3: 縮尺寸
                         if(finalData.length > 900000) {
-                            console.warn("圖片仍過大，進行縮圖...");
+                            console.warn("第二次壓縮仍過大，嘗試縮圖...");
                             finalData = await compressImage(img, 512, 0.6);
                         }
 
-                        // 最後檢查
                         if(finalData.length > 950000) {
                             uploadStatus.style.display = 'none';
                             alert("❌ 圖片實在太大了！請換一張簡單一點的圖片。");
                             return;
                         }
 
-                        // 寫入資料庫
                         setDoc(docRef, { 
                             img: finalData, 
                             ownerName: myName,
@@ -641,6 +646,97 @@
             }
             uploadInput.value="";
         });
+
+        function setupControls() {
+            joystickZone.addEventListener('touchstart', e=>{joystickActive=true; updateJoy(e.touches[0]);}, {passive:false});
+            joystickZone.addEventListener('touchmove', e=>{if(joystickActive) updateJoy(e.touches[0]); e.preventDefault();}, {passive:false});
+            joystickZone.addEventListener('touchend', ()=>{joystickActive=false; joystickKnob.style.transform=`translate(-50%,-50%)`; moveVector.set(0,0,0);});
+            lookZone.addEventListener('touchstart', e=>{lookActive=true; lastLookX=e.touches[0].clientX; lastLookY=e.touches[0].clientY;}, {passive:false});
+            lookZone.addEventListener('touchmove', e=>{
+                if(lookActive) {
+                    const t = e.touches[0]; rotateCam(t.clientX-lastLookX, t.clientY-lastLookY); lastLookX=t.clientX; lastLookY=t.clientY;
+                } e.preventDefault();
+            }, {passive:false});
+            lookZone.addEventListener('touchend', ()=>lookActive=false);
+
+            document.addEventListener('keydown', e=>{switch(e.key.toLowerCase()){case 'w':moveVector.z=-1;break;case 's':moveVector.z=1;break;case 'a':moveVector.x=-1;break;case 'd':moveVector.x=1;break;}});
+            document.addEventListener('keyup', e=>{switch(e.key.toLowerCase()){case 'w':case 's':moveVector.z=0;break;case 'a':case 'd':moveVector.x=0;break;}});
+            document.addEventListener('mousedown', () => isDragging = true);
+            document.addEventListener('mouseup', () => isDragging = false);
+            document.addEventListener('mousemove', e => { if(isDragging && !joystickActive) rotateCam(e.movementX, e.movementY); });
+        }
+        function updateJoy(t) {
+            const r = joystickZone.getBoundingClientRect();
+            const dx = t.clientX-(r.left+r.width/2); const dy = t.clientY-(r.top+r.height/2);
+            const d = Math.sqrt(dx*dx+dy*dy); const f = d>40 ? 40/d : 1;
+            joystickKnob.style.transform = `translate(calc(-50% + ${dx*f}px), calc(-50% + ${dy*f}px))`;
+            moveVector.x=(dx*f)/40; moveVector.z=(dy*f)/40;
+        }
+        function rotateCam(dx, dy) {
+            lookEuler.setFromQuaternion(camera.quaternion);
+            lookEuler.y -= dx*0.0025; lookEuler.x -= dy*0.0025;
+            lookEuler.x = Math.max(-1.4, Math.min(1.4, lookEuler.x));
+            camera.quaternion.setFromEuler(lookEuler);
+        }
+
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if(!isRunning) return;
+
+            const dt = clock.getDelta();
+            const now = Date.now();
+
+            if(moveVector.lengthSq()>0) {
+                const s = 4.0 * dt; 
+                const f = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion); f.y=0; f.normalize();
+                const r = new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion); r.y=0; r.normalize();
+                const next = camera.position.clone().addScaledVector(f, -moveVector.z*s).addScaledVector(r, moveVector.x*s);
+                
+                const box = new THREE.Box3().setFromCenterAndSize(next, new THREE.Vector3(0.5,1,0.5));
+                let hit=false; for(let c of colliders) if(box.intersectsBox(c)) { hit=true; break; }
+                if(!hit) camera.position.copy(next);
+            }
+
+            Object.keys(otherPlayers).forEach(key => {
+                const p = otherPlayers[key];
+                
+                // 🟢 關鍵修復：確保 p.group 存在才操作
+                if (!p || !p.group) return;
+
+                if(now - p.lastUpdate > 40000) {
+                    scene.remove(p.group);
+                    delete otherPlayers[key];
+                    return;
+                }
+                const dist = p.group.position.distanceTo(p.targetPos);
+                p.group.position.lerp(p.targetPos, 0.1);
+                p.group.rotation.y += (p.targetRot - p.group.rotation.y) * 0.1;
+
+                if(dist > 0.05) {
+                    const time = now * 0.01;
+                    p.legL.rotation.x = Math.sin(time) * 0.5;
+                    p.legR.rotation.x = -Math.sin(time) * 0.5;
+                    p.armL.rotation.x = -Math.sin(time) * 0.5;
+                    p.armR.rotation.x = Math.sin(time) * 0.5;
+                } else {
+                    p.legL.rotation.x = p.legR.rotation.x = 0;
+                    p.armL.rotation.x = p.armR.rotation.x = 0;
+                }
+            });
+
+            raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
+            const hits = raycaster.intersectObjects(artFrames);
+            if(hits.length>0 && hits[0].distance<8) {
+                if(targetFrame!==hits[0].object) {
+                    targetFrame=hits[0].object;
+                    promptEl.style.display='block';
+                }
+            } else { targetFrame=null; promptEl.style.display='none'; }
+
+            renderer.render(scene, camera);
+        }
 
         // --------------------------------------------------------
         // 🗑️ 管理員功能 (密碼: admin123)
