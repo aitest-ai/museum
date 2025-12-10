@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="referrer" content="no-referrer"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>智慧策展美術館 - v15 雲端圖床版</title>
+    <title>智慧策展美術館 - v16 終極保命版</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Microsoft JhengHei', sans-serif; background-color: #000; user-select: none; -webkit-user-select: none; }
         
@@ -54,13 +54,13 @@
             backdrop-filter: blur(4px);
         }
 
-        /* 上傳狀態視窗 */
         #upload-status {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background: rgba(0,0,0,0.9); color: #fff; padding: 20px 40px;
             border-radius: 10px; border: 2px solid #c0a060;
             font-size: 18px; display: none; z-index: 5000;
             text-align: center; box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            white-space: pre-line;
         }
 
         #status {
@@ -91,7 +91,7 @@
 
     <div id="start-screen">
         <h1>THE GALLERY</h1>
-        <p class="subtitle">英雄故事策展計畫</p>
+        <p class="subtitle">英雄故事策展計畫 (v16)</p>
         <input type="text" id="name-input" placeholder="請輸入您的名稱" maxlength="10" autocomplete="off">
         <button id="start-btn">進入展場</button>
         <div id="loading-text"></div>
@@ -114,41 +114,38 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, deleteDoc, getDoc, getDocs, query, where, onSnapshot, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        // ★ 引入 Storage 模組
-        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
         // --------------------------------------------------------
-        // 🔧 Firebase 設定區
+        // 🔧 Firebase 設定區 (請確認這裡是最新的)
         // --------------------------------------------------------
         let firebaseConfig;
         
-        // ★ 使用 v15-storage 版，徹底解決圖片問題
-        let appId = 'smart-museum-v15-storage'; 
+        // ★ 使用 v16-safe: 強制使用極限壓縮，確保資料庫存得下
+        let appId = 'smart-museum-v16-safe'; 
 
         if (typeof __firebase_config !== 'undefined') {
             firebaseConfig = JSON.parse(__firebase_config);
         } else {
-            // ★★★★★ 請再次確認這裡填的是你新專案的 Config ★★★★★
+            // ★ 請填入你的 Config (這裡不需要 storageBucket 了)
             firebaseConfig = {
-              apiKey: "AIzaSyA6xDg6rdIcPzhXL1sAhRl3gGiDxnWNe5Q",
-              authDomain: "museum01-c2150.firebaseapp.com",
-              projectId: "museum01-c2150",
-              storageBucket: "museum01-c2150.firebasestorage.app",
-              messagingSenderId: "1037436670488",
-              appId: "1:1037436670488:web:c4c37f05423d62f502a96d",
-              measurementId: "G-X4078911YY"
+                  apiKey: "AIzaSyDI14orpnwyFuayclLhdRkzdTrts4nGgM4",
+                  authDomain: "museum01-7e149.firebaseapp.com",
+                  projectId: "museum01-7e149",
+                  storageBucket: "museum01-7e149.firebasestorage.app",
+                  messagingSenderId: "946144736824",
+                  appId: "1:946144736824:web:c1360032325b2f62a5d8cd",
+                  measurementId: "G-NSGTGTYHZZ"
             };
         }
 
-        let app, auth, db, storage;
+        let app, auth, db;
         try {
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
             db = getFirestore(app);
-            storage = getStorage(app); // 初始化 Storage
         } catch (e) {
             console.error("Firebase 初始化失敗:", e);
-            alert("⚠️ 設定錯誤：請檢查 Config 是否正確，並確認已開啟 Storage 功能！");
+            alert("⚠️ 設定錯誤：請檢查 Config！");
         }
 
         let currentUser = null;
@@ -412,6 +409,7 @@
         function startNetworkSync() {
             let lastX=0, lastZ=0, lastRy=0;
             
+            // 監聽畫作更新 (重要：確保 artFrames 已經建立)
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'objects'), s => {
                 s.docChanges().forEach(c => {
                     const d = c.doc.data(); 
@@ -423,8 +421,8 @@
                             delete otherPlayers[id];
                         }
                     } else {
+                        // 畫作同步 (Base64)
                         if(id.startsWith('a_')) {
-                            // ★ 關鍵：現在 img 欄位存的是網址，直接讀取！
                             updateArt(id.replace('a_',''), d.img);
                         }
                         if(id.startsWith('p_') && id !== `p_${currentUser.uid}`) {
@@ -434,6 +432,7 @@
                 });
             });
 
+            // 位置同步 (節流)
             setInterval(() => {
                 if(!currentUser) return;
                 const p = camera.position;
@@ -456,7 +455,6 @@
             }, 500);
         }
 
-        // --- 玩家與標籤 ---
         function createMinecraftChar(colorHex) {
             const group = new THREE.Group();
             const color = new THREE.Color(colorHex);
@@ -542,25 +540,39 @@
                     f.material.map=t; 
                     f.material.color.setHex(0xffffff);
                     f.material.needsUpdate=true; 
-                }, undefined, (e) => console.warn("圖片載入失敗:", e));
+                });
             }
         }
 
         promptEl.addEventListener('click', ()=>targetFrame && uploadInput.click());
         
         // --------------------------------------------------------
-        // 🔒 上傳邏輯：★ 改用 Storage 上傳圖片 + Firestore 存網址 ★
+        // 🔒 上傳邏輯：★ 512px 極限壓縮，資料庫存 Base64 ★
         // --------------------------------------------------------
+        async function compressImage(img, maxWidth, quality) {
+            const c = document.createElement('canvas');
+            const ctx = c.getContext('2d');
+            let w = img.width, h = img.height;
+            if(w > maxWidth || h > maxWidth) {
+                const ratio = Math.min(maxWidth/w, maxWidth/h);
+                w *= ratio; h *= ratio;
+            }
+            c.width = w; c.height = h;
+            ctx.drawImage(img, 0, 0, w, h);
+            // 強制使用 JPEG, 0.5 品質 (最安全，保證 < 500KB)
+            return c.toDataURL('image/jpeg', quality);
+        }
+
         uploadInput.addEventListener('change', async e => {
             if(!e.target.files[0] || !targetFrame) return;
-            
-            // 1. 檢查畫框是否被佔用 (Firestore)
+
             const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'objects', `a_${targetFrame.userData.id}`);
             
             try {
+                // 1. 檢查圖
                 const snapshot = await getDoc(docRef);
                 if (snapshot.exists() && snapshot.data().img) {
-                    alert(`⛔ 這裡已經有畫了！`);
+                    alert(`⛔ 這裡不能畫喔！這幅畫已經有主人了。`);
                     uploadInput.value = "";
                     return;
                 }
@@ -575,41 +587,50 @@
                     return;
                 }
 
-                // 3. 開始上傳
-                uploadStatus.innerHTML = "☁️ 正在上傳至雲端圖床...<br><span style='font-size:12px'>(圖片越大越久，請耐心等待)</span>";
+                // 3. 壓縮上傳
+                uploadStatus.innerHTML = "☁️ 雲端存檔中...<br><span style='font-size:12px'>(請稍候...)</span>";
                 uploadStatus.style.display = 'block';
 
-                const file = e.target.files[0];
-                // 建立 Storage 參照路徑: artifacts/圖片ID.jpg
-                const storageRef = ref(storage, `artifacts/${Date.now()}_${file.name}`);
+                const r = new FileReader();
+                r.onload = ev => {
+                    const img = new Image(); 
+                    img.onload = async () => {
+                        let finalData = null;
+                        
+                        // ★ 極限壓縮：512px, 0.5 品質 (絕對安全)
+                        finalData = await compressImage(img, 512, 0.5); 
 
-                // A. 上傳檔案到 Storage
-                const uploadTask = await uploadBytes(storageRef, file);
-                
-                // B. 取得公開下載網址
-                const downloadURL = await getDownloadURL(uploadTask.ref);
-                
-                console.log("圖片網址:", downloadURL);
+                        // 檢查大小 (確保小於 950KB)
+                        if(finalData.length > 950000) {
+                            uploadStatus.style.display = 'none';
+                            alert("❌ 圖片實在太大了！即使壓縮也無法上傳。\n請換一張簡單一點的圖片。");
+                            return;
+                        }
 
-                // C. 將網址存入 Firestore (只存網址，不存圖!)
-                await setDoc(docRef, { 
-                    img: downloadURL, 
-                    ownerName: myName,
-                    ownerId: currentUser.uid, 
-                    uploadTime: serverTimestamp()
-                }, { merge: true });
-
-                uploadStatus.style.display = 'none'; 
-                alert(`✅ 上傳成功！\n作品已掛上牆面 (網址同步模式)。`);
+                        // 寫入資料庫
+                        setDoc(docRef, { 
+                            img: finalData, 
+                            ownerName: myName,
+                            ownerId: currentUser.uid, 
+                            uploadTime: serverTimestamp()
+                        }, { merge: true })
+                        .then(() => {
+                            uploadStatus.style.display = 'none'; 
+                            alert(`✅ 上傳成功！\n\n圖片已成功存入資料庫。`);
+                        })
+                        .catch(err => {
+                            uploadStatus.style.display = 'none';
+                            console.error(err);
+                            alert(`❌ 存檔失敗！\n錯誤代碼: ${err.code}\n請檢查 Firebase 規則是否設定正確。`);
+                        });
+                    }; 
+                    img.src = ev.target.result;
+                }; r.readAsDataURL(e.target.files[0]);
 
             } catch (err) {
                 uploadStatus.style.display = 'none';
                 console.error(err);
-                if(err.code === 'storage/unauthorized') {
-                    alert("❌ 上傳失敗：Storage 權限不足！\n請去 Firebase Console -> Storage -> Rules 開啟權限。");
-                } else {
-                    alert(`❌ 錯誤：${err.message}`);
-                }
+                alert("發生錯誤，請重試");
             }
             uploadInput.value="";
         });
@@ -668,7 +689,9 @@
 
             Object.keys(otherPlayers).forEach(key => {
                 const p = otherPlayers[key];
+                
                 if (!p || !p.group) return;
+
                 if(now - p.lastUpdate > 40000) {
                     scene.remove(p.group);
                     delete otherPlayers[key];
