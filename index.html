@@ -4,9 +4,8 @@
     <meta charset="UTF-8">
     <meta name="referrer" content="no-referrer"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>智慧策展美術館 - 畫質優化版</title>
+    <title>智慧策展美術館 - v10 穩定教學版</title>
     <style>
-        /* CSS 樣式區域 (保持不變) */
         body { margin: 0; overflow: hidden; font-family: 'Microsoft JhengHei', sans-serif; background-color: #000; user-select: none; -webkit-user-select: none; }
         
         #start-screen {
@@ -92,7 +91,6 @@
     <div id="start-screen">
         <h1>THE GALLERY</h1>
         <p class="subtitle">英雄故事策展計畫</p>
-        
         <input type="text" id="name-input" placeholder="請輸入您的名稱" maxlength="10" autocomplete="off">
         <button id="start-btn">進入展場</button>
         <div id="loading-text"></div>
@@ -102,7 +100,7 @@
         <div id="status">● 連線中...</div>
         <div id="crosshair"></div>
         <div id="interaction-prompt">點擊上傳作品</div>
-        <div id="upload-status">☁️ 正在上傳至雲端資料庫...<br><span style="font-size:12px; color:#aaa;">(請勿關閉視窗，大型圖片需要一點時間)</span></div>
+        <div id="upload-status">☁️ 雲端存檔中...<br><span style="font-size:12px; color:#aaa;">(請勿關閉視窗)</span></div>
     </div>
 
     <div id="joystick-zone"><div id="joystick-knob"></div></div>
@@ -112,32 +110,34 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script type="module">
+        // 導入 Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, deleteDoc, getDoc, getDocs, query, where, onSnapshot, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --------------------------------------------------------
-        // 🔧 Firebase 設定區
+        // 🔧 步驟一：請將你的新 Firebase 設定貼在下方
         // --------------------------------------------------------
         let firebaseConfig;
         
-        // ★★★ 使用 v9 版本號，代表畫質優化版 ★★★
-        let appId = 'smart-museum-v9-quality'; 
-
+        // 如果這裡沒貼設定，請填入你的新專案 Config
         if (typeof __firebase_config !== 'undefined') {
             firebaseConfig = JSON.parse(__firebase_config);
         } else {
-            // 使用你的設定
+            // ★★★ 請替換成你剛剛申請的新專案設定 ★★★
             firebaseConfig = {
-                  apiKey: "AIzaSyA6xDg6rdIcPzhXL1sAhRl3gGiDxnWNe5Q",
-                  authDomain: "museum01-c2150.firebaseapp.com",
-                  projectId: "museum01-c2150",
-                  storageBucket: "museum01-c2150.firebasestorage.app",
-                  messagingSenderId: "1037436670488",
-                  appId: "1:1037436670488:web:c4c37f05423d62f502a96d",
-                  measurementId: "G-X4078911YY"
+                  apiKey: "AIzaSyDI14orpnwyFuayclLhdRkzdTrts4nGgM4",
+                  authDomain: "museum01-7e149.firebaseapp.com",
+                  projectId: "museum01-7e149",
+                  storageBucket: "museum01-7e149.firebasestorage.app",
+                  messagingSenderId: "946144736824",
+                  appId: "1:946144736824:web:c1360032325b2f62a5d8cd",
+                  measurementId: "G-NSGTGTYHZZ"
             };
         }
+
+        // 使用 v10 作為唯一識別碼
+        let appId = 'smart-museum-v10-final'; 
 
         let app, auth, db;
         try {
@@ -145,7 +145,8 @@
             auth = getAuth(app);
             db = getFirestore(app);
         } catch (e) {
-            console.error("Firebase 初始化失敗:", e);
+            console.error("Firebase 設定錯誤，請檢查 Config:", e);
+            alert("Firebase 連線設定錯誤，請按 F12 查看 Console");
         }
 
         let currentUser = null;
@@ -211,11 +212,8 @@
         const WALL_T = 1.2;
         const FRAME_OFF = WALL_T / 2 + 0.15; 
 
-        // --------------------------------------------------------
-        // 🎨 材質與場景 (經典場景)
-        // --------------------------------------------------------
         function createLuxuryWoodTex() {
-            const s=1024;const c=document.createElement('canvas');c.width=s;c.height=s;const ctx=c.getContext('2d');
+            const s=512;const c=document.createElement('canvas');c.width=s;c.height=s;const ctx=c.getContext('2d');
             ctx.fillStyle='#8d6e63';ctx.fillRect(0,0,s,s);
             const w=64,h=256;
             for(let y=0;y<s;y+=h/2){for(let x=0;x<s;x+=w){
@@ -404,21 +402,39 @@
             } 
         });
 
+        // --------------------------------------------------------
+        // 📉 關鍵修改：省流量網路同步 (Debounce + Threshold)
+        // --------------------------------------------------------
         function startNetworkSync() {
+            let lastX=0, lastZ=0, lastRy=0;
+
+            // 1. 每 0.5 秒才檢查一次，大幅減少寫入頻率 (省錢關鍵!)
             setInterval(() => {
                 if(!currentUser) return;
+                
                 const p = camera.position;
-                setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'objects', `p_${currentUser.uid}`), 
-                    {
-                        x: p.x, y: p.y, z: p.z, 
-                        ry: camera.rotation.y, 
-                        name: myName, 
-                        c: '#' + myColor,
-                        t: Date.now() 
-                    }
-                ).catch(()=>{});
-            }, 100);
+                const ry = camera.rotation.y;
+
+                // 2. 只有位置改變超過 0.1 才上傳
+                if (Math.abs(p.x - lastX) > 0.1 || Math.abs(p.z - lastZ) > 0.1 || Math.abs(ry - lastRy) > 0.1) {
+                    
+                    setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'objects', `p_${currentUser.uid}`), 
+                        {
+                            x: parseFloat(p.x.toFixed(2)), 
+                            y: parseFloat(p.y.toFixed(2)), 
+                            z: parseFloat(p.z.toFixed(2)), 
+                            ry: parseFloat(ry.toFixed(2)), 
+                            name: myName, 
+                            c: '#' + myColor,
+                            t: Date.now() 
+                        }
+                    ).catch(e => console.warn("Sync skipped:", e)); // 忽略偶發的網路錯誤
+
+                    lastX = p.x; lastZ = p.z; lastRy = ry;
+                }
+            }, 500); 
             
+            // 監聽
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'objects'), s => {
                 s.docChanges().forEach(c => {
                     const d = c.doc.data(); 
@@ -528,7 +544,7 @@
         promptEl.addEventListener('click', ()=>targetFrame && uploadInput.click());
         
         // --------------------------------------------------------
-        // 🔒 上傳邏輯：★ 畫質優化版 (800px, 0.75) ★
+        // 🔒 上傳邏輯：★ 平衡版 (800px, 0.75品質) ★
         // --------------------------------------------------------
         uploadInput.addEventListener('change', async e => {
             if(!e.target.files[0] || !targetFrame) return;
@@ -556,21 +572,20 @@
                     return;
                 }
 
-                // 顯示「雲端上傳中」UI
+                // 顯示狀態
                 uploadStatus.style.display = 'block';
 
-                // 3. 上傳 (優化參數：800px, 0.75品質)
+                // 3. 上傳
                 const r = new FileReader();
                 r.onload = ev => {
                     const img = new Image(); img.onload = () => {
                         const c = document.createElement('canvas'); const ctx=c.getContext('2d');
                         
-                        // ★★★ 關鍵修改：提升到 800px ★★★
+                        // ★★★ 關鍵參數：800px + 0.75 Quality (約 150KB-400KB)，安全且清晰 ★★★
                         let w=img.width, h=img.height, m=800;
                         if(w>m||h>m){const s=Math.min(m/w,m/h);w*=s;h*=s;}
                         c.width=w;c.height=h; ctx.drawImage(img,0,0,w,h);
                         
-                        // 使用 0.75 品質，平衡畫質與大小
                         const base64Data = c.toDataURL('image/jpeg', 0.75);
 
                         setDoc(docRef, 
@@ -582,14 +597,13 @@
                             }, 
                             { merge: true })
                         .then(() => {
-                            uploadStatus.style.display = 'none'; // 隱藏上傳中
-                            alert(`✅ 上傳成功！\n\n大家現在都看得到你的傑作了！`);
+                            uploadStatus.style.display = 'none'; 
+                            alert(`✅ 上傳成功！\n\n作品已成功掛上牆面。`);
                         })
                         .catch(err => {
                             uploadStatus.style.display = 'none';
                             console.error(err);
-                            // 如果真的太大了，Firebase 會報錯，這裡捕捉錯誤提示
-                            alert("❌ 上傳失敗！\n\n這張圖片的細節太多，超過了雲端限制。\n請試著換一張比較簡單的圖片，或是截圖後再上傳。");
+                            alert("❌ 上傳失敗！\n\n圖片過大，系統自動縮圖後仍然超過限制。\n請嘗試使用較簡單的圖片或截圖。");
                         });
                     }; img.src = ev.target.result;
                 }; r.readAsDataURL(e.target.files[0]);
@@ -657,7 +671,6 @@
 
             Object.keys(otherPlayers).forEach(key => {
                 const p = otherPlayers[key];
-                // 40秒 移除機制
                 if(now - p.lastUpdate > 40000) {
                     scene.remove(p.group);
                     delete otherPlayers[key];
