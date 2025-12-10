@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>智慧策展美術館 - v20 大人物全功能版</title>
+    <title>智慧策展美術館 - v21 圓廳修復版</title>
     <style>
-        /* CSS 保持原樣，無刪減 */
         body { margin: 0; overflow: hidden; font-family: 'Microsoft JhengHei', sans-serif; background-color: #000; user-select: none; -webkit-user-select: none; }
         
         #start-screen {
@@ -112,7 +111,7 @@
         import { getFirestore, collection, doc, setDoc, deleteDoc, getDoc, getDocs, query, where, onSnapshot, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // ========================================================
-        // 1. Firebase 設定 (請填入你的)
+        // 🔧 1. Firebase 設定
         // ========================================================
         const firebaseConfig = {
               apiKey: "AIzaSyDI14orpnwyFuayclLhdRkzdTrts4nGgM4",
@@ -125,14 +124,14 @@
         };
 
         // ========================================================
-        // ☁️ 2. Cloudinary 設定 (請填入你的)
+        // ☁️ 2. Cloudinary 設定
         // ========================================================
         const CLOUDINARY_CLOUD_NAME = "dllwu8dwu"; 
         const CLOUDINARY_UPLOAD_PRESET = "museum_upload"; 
 
         // --------------------------------------------------------
         
-        let appId = 'smart-museum-v20-bigboy'; 
+        let appId = 'smart-museum-v21-fixed'; 
         let app, auth, db;
 
         try {
@@ -141,7 +140,7 @@
             db = getFirestore(app);
         } catch (e) {
             console.error("Firebase 初始化失敗:", e);
-            alert("Firebase 設定有誤，請按 F12 檢查 Config。");
+            alert("Firebase 設定有誤，請檢查 Config。");
         }
 
         let currentUser = null;
@@ -171,6 +170,7 @@
         startBtn.addEventListener('click', async () => {
             if (!nameInput.value.trim()) return;
             myName = nameInput.value.trim();
+            
             startBtn.style.display = 'none';
             nameInput.style.display = 'none';
             loadingText.innerText = "正在連線到美術館...";
@@ -223,7 +223,7 @@
             camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 100);
             camera.rotation.order = 'YXZ';
             
-            // ★ 修改 1：調整攝影機高度，配合人物放大 (1.7 * 1.5 = 2.55)
+            // ★ 人物放大1.5倍，攝影機高度也提升 (1.7 * 1.5 = 2.55)
             camera.position.set(0, 2.55, 0); 
 
             renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
@@ -232,19 +232,17 @@
             renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             renderer.outputEncoding = THREE.sRGBEncoding;
-            renderer.toneMapping = THREE.ACESFilmicToneMapping;
-            renderer.toneMappingExposure = 1.0;
             document.body.appendChild(renderer.domElement);
 
             const ambient = new THREE.AmbientLight(0xffffff, 0.6); 
             scene.add(ambient);
             const sun = new THREE.DirectionalLight(0xfff0dd, 0.7);
-            sun.position.set(20, 50, 20); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+            sun.position.set(20, 50, 20); sun.castShadow = true; 
             scene.add(sun);
             const fill = new THREE.DirectionalLight(0xddeeff, 0.3);
             fill.position.set(-20, 30, -20); scene.add(fill);
 
-            buildOriginalScene(); // 經典場景
+            buildOriginalScene(); 
 
             raycaster = new THREE.Raycaster();
             setupControls();
@@ -285,7 +283,7 @@
                 return new THREE.CanvasTexture(c);
             }
 
-            const matWood = new THREE.MeshStandardMaterial({ map: createLuxuryWoodTex(), roughness: 0.4, metalness: 0.1 });
+            const matWood = new THREE.MeshStandardMaterial({ map: createLuxuryWoodTex(), roughness: 0.4 });
             const matWall = new THREE.MeshStandardMaterial({ map: createWallTex(), roughness: 0.9 });
             const matCeil = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 1.0 });
             const matRugMain = new THREE.MeshStandardMaterial({ map: createRugTex('#3e2723', '#c0a060'), roughness: 0.95 });
@@ -307,7 +305,6 @@
                 const geo = new THREE.BoxGeometry(w, h, WALL_T);
                 const mesh = new THREE.Mesh(geo, matWall);
                 mesh.position.set(x, h/2, z); mesh.rotation.y = r;
-                mesh.castShadow = true; mesh.receiveShadow = true;
                 scene.add(mesh);
                 colliders.push(new THREE.Box3().setFromObject(mesh));
             };
@@ -315,6 +312,7 @@
             addWall(0, -12, 20, 8, 0); addWall(0, 12, 20, 8, 0);
             addWall(-10, 0, 24, 8, Math.PI/2); addWall(10, 8, 8, 8, Math.PI/2); addWall(10, -8, 8, 8, Math.PI/2);
             
+            // ★ 修復：圓形展廳畫框位置
             const cx=28, cz=0, rad=9, seg=12;
             for(let i=0; i<seg; i++) {
                 const a = (i/seg)*Math.PI*2;
@@ -323,7 +321,9 @@
                 const wx = cx + Math.cos(a)*rad;
                 const wz = cz + Math.sin(a)*rad;
                 addWall(wx, wz, w, 8, -a+Math.PI/2);
-                addArt(`Rot_${i}`, cx+Math.cos(a)*(rad-0.8), 4, cz+Math.sin(a)*(rad-0.8), -a+Math.PI*1.5, 3.0, 4.2);
+                
+                // 修正浮空：將 (rad-0.8) 改為 (rad-0.65)，貼齊牆面 (9 - 1.2/2 - 0.05)
+                addArt(`Rot_${i}`, cx+Math.cos(a)*(rad-0.65), 4, cz+Math.sin(a)*(rad-0.65), -a+Math.PI*1.5, 3.0, 4.2);
             }
 
             addWall(-35, 0, 40, 8, Math.PI/2);
@@ -422,7 +422,7 @@
                 const p = camera.position;
                 const ry = camera.rotation.y;
 
-                if (Math.abs(p.x - lastX) > 0.1 || Math.abs(p.z - lastZ) > 0.1 || Math.abs(ry - lastRy) > 0.1) {
+                if (Math.abs(p.x - lastX) > 0.1 || Math.abs(p.z - lastZ) > 0.1) {
                     setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'objects', `p_${currentUser.uid}`), 
                         {
                             x: parseFloat(p.x.toFixed(2)), 
@@ -439,7 +439,7 @@
             }, 500);
         }
 
-        // --- 人物模型 (放大版) ---
+        // --- 人物模型 (放大 1.5 倍) ---
         function createMinecraftChar(colorHex) {
             const group = new THREE.Group();
             const color = new THREE.Color(colorHex);
@@ -475,7 +475,7 @@
 
             group.traverse(o => { if(o.isMesh) { o.castShadow = true; o.receiveShadow = true; }});
             
-            // ★ 修改 2：將整個人物群組放大 1.5 倍
+            // ★ 修改：人物放大 1.5 倍
             group.scale.set(1.5, 1.5, 1.5);
 
             return { group, armL: armLGroup, armR: armRGroup, legL: legLGroup, legR: legRGroup, head };
@@ -492,9 +492,9 @@
             const tex = new THREE.CanvasTexture(canvas);
             const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
             const sprite = new THREE.Sprite(mat);
-            // 標籤也稍微放大一點，位置也跟著人物比例調整
+            // 標籤也跟著放大
             sprite.scale.set(1.5 * 1.5, 0.375 * 1.5, 1);
-            sprite.position.y = 2.1; // 因為被 group 放大，這裡的相對位置不用變太多
+            sprite.position.y = 2.1; 
             return sprite;
         }
 
@@ -523,7 +523,7 @@
         function updateArt(fid, src) {
             const f = artFrames.find(x => x.userData.id===fid);
             if(f && src) {
-                // Cloudinary 支援 CORS
+                // ★ 這裡開啟跨域存取，確保 Cloudinary 圖片能顯示
                 const loader = new THREE.TextureLoader();
                 loader.setCrossOrigin('anonymous');
                 loader.load(src, t=>{ 
@@ -631,41 +631,27 @@
             lookEuler.x = Math.max(-1.4, Math.min(1.4, lookEuler.x));
             camera.quaternion.setFromEuler(lookEuler);
         }
-
-        const clock = new THREE.Clock();
-
         function animate() {
             requestAnimationFrame(animate);
             if(!isRunning) return;
-
             const dt = clock.getDelta();
             const now = Date.now();
-
             if(moveVector.lengthSq()>0) {
                 const s = 4.0 * dt; 
                 const f = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion); f.y=0; f.normalize();
                 const r = new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion); r.y=0; r.normalize();
                 const next = camera.position.clone().addScaledVector(f, -moveVector.z*s).addScaledVector(r, moveVector.x*s);
-                
                 const box = new THREE.Box3().setFromCenterAndSize(next, new THREE.Vector3(0.5,1,0.5));
                 let hit=false; for(let c of colliders) if(box.intersectsBox(c)) { hit=true; break; }
                 if(!hit) camera.position.copy(next);
             }
-
             Object.keys(otherPlayers).forEach(key => {
                 const p = otherPlayers[key];
-                
                 if (!p || !p.group) return;
-
-                if(now - p.lastUpdate > 40000) {
-                    scene.remove(p.group);
-                    delete otherPlayers[key];
-                    return;
-                }
-                const dist = p.group.position.distanceTo(p.targetPos);
+                if(now - p.lastUpdate > 40000) { scene.remove(p.group); delete otherPlayers[key]; return; }
                 p.group.position.lerp(p.targetPos, 0.1);
                 p.group.rotation.y += (p.targetRot - p.group.rotation.y) * 0.1;
-
+                const dist = p.group.position.distanceTo(p.targetPos);
                 if(dist > 0.05) {
                     const time = now * 0.01;
                     p.legL.rotation.x = Math.sin(time) * 0.6;
@@ -677,22 +663,14 @@
                     p.armL.rotation.x = p.armR.rotation.x = 0;
                 }
             });
-
             raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
             const hits = raycaster.intersectObjects(artFrames);
             if(hits.length>0 && hits[0].distance<8) {
-                if(targetFrame!==hits[0].object) {
-                    targetFrame=hits[0].object;
-                    promptEl.style.display='block';
-                }
+                if(targetFrame!==hits[0].object) { targetFrame=hits[0].object; promptEl.style.display='block'; promptEl.innerText = `更換畫作`; }
             } else { targetFrame=null; promptEl.style.display='none'; }
-
             renderer.render(scene, camera);
         }
-
-        // --------------------------------------------------------
-        // 🗑️ 管理員功能 (密碼: admin123)
-        // --------------------------------------------------------
+        const clock = new THREE.Clock();
         window.resetMuseum = async () => {
             if(prompt("密碼：") !== "admin123") return alert("錯誤");
             if(!confirm("確定清空？")) return;
