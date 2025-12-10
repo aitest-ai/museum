@@ -4,12 +4,11 @@
     <meta charset="UTF-8">
     <meta name="referrer" content="no-referrer"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>智慧策展美術館</title>
+    <title>智慧策展美術館 - 畫質優化版</title>
     <style>
-        /* user-select: none 防止拖曳時選取文字 */
+        /* CSS 樣式區域 (保持不變) */
         body { margin: 0; overflow: hidden; font-family: 'Microsoft JhengHei', sans-serif; background-color: #000; user-select: none; -webkit-user-select: none; }
         
-        /* 啟動畫面 */
         #start-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: #111; color: #ddd;
@@ -17,27 +16,28 @@
             z-index: 2000; transition: opacity 0.8s ease-out;
         }
         h1 { font-weight: 300; letter-spacing: 8px; margin: 0; color: #c0a060; text-transform: uppercase; }
-        .subtitle { letter-spacing: 3px; color: #888; font-size: 14px; margin-top: 15px; }
+        .subtitle { letter-spacing: 3px; color: #888; font-size: 14px; margin-top: 15px; margin-bottom: 30px; }
         
-        #loading-bar-container {
-            width: 200px; height: 2px; background: #333; margin-top: 30px;
-            display: none;
+        #name-input {
+            background: transparent; border: none; border-bottom: 2px solid #555;
+            color: #fff; font-size: 20px; text-align: center; padding: 10px;
+            width: 250px; outline: none; margin-bottom: 20px; letter-spacing: 1px;
+            transition: border-color 0.3s;
         }
-        #loading-bar {
-            width: 0%; height: 100%; background: #c0a060; transition: width 0.3s;
-        }
-        #loading-text {
-            color: #666; font-size: 12px; margin-top: 10px; letter-spacing: 1px; min-height: 15px;
-        }
+        #name-input:focus { border-bottom-color: #c0a060; }
+        #name-input::placeholder { color: #444; }
 
         #start-btn {
             background: transparent; color: #c0a060; border: 1px solid #c0a060; padding: 12px 50px;
-            font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 30px;
+            font-size: 15px; font-weight: bold; cursor: pointer;
             border-radius: 2px; transition: all 0.3s; letter-spacing: 2px;
+            opacity: 0.5; pointer-events: none;
         }
-        #start-btn:hover { background: #c0a060; color: #000; }
+        #start-btn.active { opacity: 1; pointer-events: auto; background: rgba(192, 160, 96, 0.1); }
+        #start-btn.active:hover { background: #c0a060; color: #000; }
 
-        /* UI */
+        #loading-text { color: #666; font-size: 12px; margin-top: 15px; letter-spacing: 1px; min-height: 15px; }
+
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
         
         #crosshair {
@@ -55,13 +55,20 @@
             backdrop-filter: blur(4px);
         }
 
+        #upload-status {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8); color: #fff; padding: 20px 40px;
+            border-radius: 10px; border: 2px solid #c0a060;
+            font-size: 18px; display: none; z-index: 5000;
+            text-align: center;
+        }
+
         #status {
             position: absolute; top: 20px; left: 20px;
             color: rgba(255,255,255,0.4); font-size: 12px;
             display: none;
         }
 
-        /* Controls */
         #joystick-zone {
             position: absolute; bottom: 40px; left: 30px; width: 120px; height: 120px;
             background: rgba(255,255,255,0.08); border-radius: 50%; border: 1px solid rgba(255,255,255,0.1);
@@ -84,18 +91,18 @@
 
     <div id="start-screen">
         <h1>THE GALLERY</h1>
-        <p class="subtitle">智慧策展空間</p>
+        <p class="subtitle">英雄故事策展計畫</p>
         
-        <div id="loading-bar-container"><div id="loading-bar"></div></div>
+        <input type="text" id="name-input" placeholder="請輸入您的名稱" maxlength="10" autocomplete="off">
+        <button id="start-btn">進入展場</button>
         <div id="loading-text"></div>
-
-        <button id="start-btn">開始導覽</button>
     </div>
 
     <div id="ui-layer">
         <div id="status">● 連線中...</div>
         <div id="crosshair"></div>
-        <div id="interaction-prompt">點擊更換畫作</div>
+        <div id="interaction-prompt">點擊上傳作品</div>
+        <div id="upload-status">☁️ 正在上傳至雲端資料庫...<br><span style="font-size:12px; color:#aaa;">(請勿關閉視窗，大型圖片需要一點時間)</span></div>
     </div>
 
     <div id="joystick-zone"><div id="joystick-knob"></div></div>
@@ -106,67 +113,107 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, onSnapshot, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, deleteDoc, getDoc, getDocs, query, where, onSnapshot, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --------------------------------------------------------
-        // 🗑️ 已移除 IMAGE_POOL (需求1)
-        // --------------------------------------------------------
-       
         // --------------------------------------------------------
         // 🔧 Firebase 設定區
         // --------------------------------------------------------
         let firebaseConfig;
-        let appId = 'smart-museum-v1';
+        
+        // ★★★ 使用 v9 版本號，代表畫質優化版 ★★★
+        let appId = 'smart-museum-v9-quality'; 
 
         if (typeof __firebase_config !== 'undefined') {
             firebaseConfig = JSON.parse(__firebase_config);
-            if(typeof __app_id !== 'undefined') appId = __app_id;
         } else {
-            // [GitHub Pages 部署]：請確認這裡的資訊正確
+            // 使用你的設定
             firebaseConfig = {
                 apiKey: "AIzaSyChb73kxw4a2mJqxzFp6OOtLX_2dG6SSEI",
-                authDomain: "museum-ac9af.firebaseapp.com",
-                projectId: "museum-ac9af",
-                storageBucket: "museum-ac9af.firebasestorage.app",
-                messagingSenderId: "863600584428",
-                appId: "1:863600584428:web:1bfdc27badd37d7cb467c9",
-                measurementId: "G-DPMRMLK241"
+                  authDomain: "museum-ac9af.firebaseapp.com",
+                  projectId: "museum-ac9af",
+                  storageBucket: "museum-ac9af.firebasestorage.app",
+                  messagingSenderId: "863600584428",
+                  appId: "1:863600584428:web:65d47edc8fcbf383b467c9",
+                  measurementId: "G-H0FZ01T0JR"
             };
         }
 
         let app, auth, db;
-        let isFirebaseReady = false;
-
         try {
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
             db = getFirestore(app);
-            isFirebaseReady = true;
         } catch (e) {
             console.error("Firebase 初始化失敗:", e);
-            alert("Firebase 設定錯誤，請檢查 Console");
         }
 
         let currentUser = null;
-        let myColor = new THREE.Color().setHSL(Math.random(), 0.1, 0.6).getHexString();
+        let myName = "Guest";
+        let myColor = new THREE.Color().setHSL(Math.random(), 0.6, 0.5).getHexString();
         let isRunning = false;
 
         const startScreen = document.getElementById('start-screen');
+        const nameInput = document.getElementById('name-input');
         const startBtn = document.getElementById('start-btn');
-        const loadingBarContainer = document.getElementById('loading-bar-container');
-        const loadingBar = document.getElementById('loading-bar');
         const loadingText = document.getElementById('loading-text');
         
         const statusEl = document.getElementById('status');
         const promptEl = document.getElementById('interaction-prompt');
         const uploadInput = document.getElementById('upload-input');
+        const uploadStatus = document.getElementById('upload-status');
         const joystickZone = document.getElementById('joystick-zone');
         const joystickKnob = document.getElementById('joystick-knob');
         const crosshair = document.getElementById('crosshair');
         const lookZone = document.getElementById('look-zone');
 
-        // Textures
+        nameInput.addEventListener('input', () => {
+            if(nameInput.value.trim().length > 0) startBtn.classList.add('active');
+            else startBtn.classList.remove('active');
+        });
+
+        startBtn.addEventListener('click', async () => {
+            if (!nameInput.value.trim()) return;
+            myName = nameInput.value.trim();
+            
+            startBtn.style.display = 'none';
+            nameInput.style.display = 'none';
+            loadingText.innerText = "正在進入元宇宙...";
+
+            if(!isRunning) {
+                init3D();
+                isRunning = true;
+                await initAuth();
+            }
+
+            setTimeout(() => {
+                startScreen.style.opacity = 0;
+                setTimeout(() => startScreen.style.display='none', 600);
+                statusEl.style.display='block';
+                joystickZone.style.display='block';
+                lookZone.style.display='block';
+                crosshair.style.display='block'; 
+            }, 1000);
+        });
+
+        // --- 3D Scene ---
+        let scene, camera, renderer;
+        let otherPlayers = {};
+        let artFrames = [];
+        let colliders = [];
+        let raycaster;
+        let targetFrame = null;
+        let moveVector = new THREE.Vector3();
+        let lookEuler = new THREE.Euler(0,0,0,'YXZ');
+        let joystickActive=false, lookActive=false, lastLookX=0, lastLookY=0;
+        let isDragging = false; 
+
+        const WALL_T = 1.2;
+        const FRAME_OFF = WALL_T / 2 + 0.15; 
+
+        // --------------------------------------------------------
+        // 🎨 材質與場景 (經典場景)
+        // --------------------------------------------------------
         function createLuxuryWoodTex() {
             const s=1024;const c=document.createElement('canvas');c.width=s;c.height=s;const ctx=c.getContext('2d');
             ctx.fillStyle='#8d6e63';ctx.fillRect(0,0,s,s);
@@ -191,54 +238,6 @@
             ctx.globalAlpha=0.05;ctx.fillStyle='#fff';for(let i=0;i<60000;i++)ctx.fillRect(Math.random()*s,Math.random()*s,1,1);
             return new THREE.CanvasTexture(c);
         }
-
-        // --- 智慧佈展邏輯 ---
-        let availableFrames = { landscape: [], portrait: [], square: [] };
-
-        startBtn.addEventListener('click', async () => {
-            if (!isFirebaseReady) return;
-
-            startBtn.style.display = 'none';
-            loadingBarContainer.style.display = 'block';
-            loadingText.innerText = "正在進入美術館...";
-
-            if(!isRunning) {
-                init3D();
-                isRunning = true;
-                initAuth();
-            }
-
-            // 模擬讀取
-            setTimeout(async () => {
-                loadingBar.style.width = '100%';
-                setTimeout(() => {
-                    startScreen.style.opacity = 0;
-                    setTimeout(() => startScreen.style.display='none', 600);
-                    
-                    statusEl.style.display='block';
-                    joystickZone.style.display='block';
-                    lookZone.style.display='block';
-                    crosshair.style.display='block'; 
-                }, 800);
-            }, 1000);
-        });
-
-        // 移除 smartCurate 函式，不再自動填入圖片
-
-        // --- 3D Scene ---
-        let scene, camera, renderer;
-        let otherPlayers = {};
-        let artFrames = [];
-        let colliders = [];
-        let raycaster;
-        let targetFrame = null;
-        let moveVector = new THREE.Vector3();
-        let lookEuler = new THREE.Euler(0,0,0,'YXZ');
-        let joystickActive=false, lookActive=false, lastLookX=0, lastLookY=0;
-        let isDragging = false; 
-
-        const WALL_T = 1.2;
-        const FRAME_OFF = WALL_T / 2 + 0.15; 
 
         function init3D() {
             scene = new THREE.Scene();
@@ -267,15 +266,23 @@
             const fill = new THREE.DirectionalLight(0xddeeff, 0.3);
             fill.position.set(-20, 30, -20); scene.add(fill);
 
-            buildScene();
+            buildOriginalScene();
 
             raycaster = new THREE.Raycaster();
             window.addEventListener('resize', onResize);
             setupControls();
+            
+            window.addEventListener('beforeunload', () => {
+                if(currentUser) {
+                    const pDoc = doc(db, 'artifacts', appId, 'public', 'data', 'objects', `p_${currentUser.uid}`);
+                    deleteDoc(pDoc);
+                }
+            });
+
             animate();
         }
 
-        function buildScene() {
+        function buildOriginalScene() {
             const matWood = new THREE.MeshStandardMaterial({ map: createLuxuryWoodTex(), roughness: 0.4, metalness: 0.1 });
             const matWall = new THREE.MeshStandardMaterial({ map: createWallTex(), roughness: 0.9 });
             const matCeil = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 1.0 });
@@ -356,11 +363,6 @@
         }
 
         function addArt(id, x, y, z, ry, w=3.4, h=3.4) {
-            const type = (w > h * 1.1) ? 'landscape' : (h > w * 1.1) ? 'portrait' : 'square';
-            if (type === 'landscape') availableFrames.landscape.push(id);
-            else if (type === 'portrait') availableFrames.portrait.push(id);
-            else availableFrames.square.push(id);
-
             const fGeo = new THREE.BoxGeometry(w, h, 0.15);
             const fMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.6, metalness: 0.2 });
             const frame = new THREE.Mesh(fGeo, fMat);
@@ -368,7 +370,7 @@
             scene.add(frame);
 
             const cGeo = new THREE.PlaneGeometry(w-0.4, h-0.4);
-            const cMat = new THREE.MeshBasicMaterial({ color: 0xdddddd }); // 預設灰色
+            const cMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
             const canvas = new THREE.Mesh(cGeo, cMat);
             const offset = 0.1; 
             canvas.position.set(x + Math.sin(ry)*offset, y, z + Math.cos(ry)*offset);
@@ -384,156 +386,227 @@
             scene.add(spot); scene.add(spot.target);
         }
 
-        function isMobile() { return /Android|iPhone|iPad/i.test(navigator.userAgent); }
-
         async function initAuth() {
             try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token);
-                else await signInAnonymously(auth);
+                await signInAnonymously(auth);
             } catch(e){
                 console.error("Auth Error:", e);
-                statusEl.innerText = "● 連線失敗 (請檢查網域設定)";
-                statusEl.style.color = "red";
+                statusEl.innerText = "● 連線失敗"; statusEl.style.color = "red";
             }
         }
+
         onAuthStateChanged(auth, u => { 
             if(u) { 
                 currentUser=u; 
-                statusEl.innerText="● 線上"; 
+                statusEl.innerText=`● ${myName} (線上)`; 
                 statusEl.style.color="#c0a060"; 
                 startNetworkSync(); 
             } 
         });
 
-        // --------------------------------------------------------
-        // 🚶 人形建立函式 (新功能)
-        // --------------------------------------------------------
-        function createHumanoid(colorStr) {
-            const group = new THREE.Group();
-            
-            const skinMat = new THREE.MeshStandardMaterial({ color: 0xffccaa });
-            const clothesMat = new THREE.MeshStandardMaterial({ color: colorStr });
-            
-            // 頭 (Head)
-            const head = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.24, 0.24), skinMat);
-            head.position.y = 1.62;
-            head.castShadow = true;
-            group.add(head);
-
-            // 身體 (Body)
-            const body = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.45, 0.15), clothesMat);
-            body.position.y = 1.275;
-            body.castShadow = true;
-            group.add(body);
-
-            // 建立四肢 helper
-            function createLimb(w, h, d, x, y, mat) {
-                const limbGroup = new THREE.Group();
-                limbGroup.position.set(x, y, 0);
-                const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-                mesh.position.y = -h / 2; // 讓旋轉軸在頂部
-                mesh.castShadow = true;
-                limbGroup.add(mesh);
-                return limbGroup;
-            }
-
-            const armW = 0.1, armH = 0.45, armD = 0.1;
-            const legW = 0.12, legH = 0.55, legD = 0.12;
-
-            // 左手 Right Arm (Viewer's left)
-            const leftArm = createLimb(armW, armH, armD, -0.22, 1.48, clothesMat);
-            // 右手 Left Arm
-            const rightArm = createLimb(armW, armH, armD, 0.22, 1.48, clothesMat);
-            // 左腳 Right Leg
-            const leftLeg = createLimb(legW, legH, legD, -0.08, 1.05, clothesMat); // 褲子顏色同身體
-            // 右腳 Left Leg
-            const rightLeg = createLimb(legW, legH, legD, 0.08, 1.05, clothesMat);
-
-            group.add(leftArm, rightArm, leftLeg, rightLeg);
-
-            // 儲存四肢引用以便動畫使用
-            group.userData = { 
-                limbs: { leftArm, rightArm, leftLeg, rightLeg },
-                walkTime: 0,
-                targetPos: new THREE.Vector3(),
-                targetRot: 0
-            };
-            return group;
-        }
-
-        // Network
         function startNetworkSync() {
             setInterval(() => {
                 if(!currentUser) return;
                 const p = camera.position;
                 setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'objects', `p_${currentUser.uid}`), 
-                    {x:p.x, y:p.y, z:p.z, ry:camera.rotation.y, c:'#'+myColor, t:Date.now()}).catch(()=>{});
+                    {
+                        x: p.x, y: p.y, z: p.z, 
+                        ry: camera.rotation.y, 
+                        name: myName, 
+                        c: '#' + myColor,
+                        t: Date.now() 
+                    }
+                ).catch(()=>{});
             }, 100);
             
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'objects'), s => {
                 s.docChanges().forEach(c => {
-                    const d=c.doc.data(); const id=c.doc.id;
-                    if(id.startsWith('p_') && id!==`p_${currentUser.uid}`) updatePlayer(id,d);
-                    if(id.startsWith('a_')) updateArt(id.replace('a_',''), d.img || d.imageUrl);
+                    const d = c.doc.data(); 
+                    const id = c.doc.id;
+
+                    if(c.type === 'removed') {
+                        if(id.startsWith('p_') && otherPlayers[id]) {
+                            scene.remove(otherPlayers[id].group);
+                            delete otherPlayers[id];
+                        }
+                    } else {
+                        if(id.startsWith('a_')) updateArt(id.replace('a_',''), d.img);
+                        if(id.startsWith('p_') && id !== `p_${currentUser.uid}`) {
+                            updatePlayer(id, d);
+                        }
+                    }
                 });
             });
         }
 
+        function createMinecraftChar(colorHex) {
+            const group = new THREE.Group();
+            const color = new THREE.Color(colorHex);
+            const matBody = new THREE.MeshStandardMaterial({ color: color });
+            const matSkin = new THREE.MeshStandardMaterial({ color: 0xffccaa });
+            const matDark = new THREE.MeshStandardMaterial({ color: 0x333333 });
+
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), matSkin);
+            head.position.y = 1.6; group.add(head);
+
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.6, 0.2), matBody);
+            body.position.y = 1.1; group.add(body);
+
+            const armL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.6, 0.12), matSkin);
+            armL.position.y = -0.2; 
+            const armLGroup = new THREE.Group(); armLGroup.add(armL);
+            armLGroup.position.set(-0.28, 1.35, 0); group.add(armLGroup);
+
+            const armR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.6, 0.12), matSkin);
+            armR.position.y = -0.2;
+            const armRGroup = new THREE.Group(); armRGroup.add(armR);
+            armRGroup.position.set(0.28, 1.35, 0); group.add(armRGroup);
+
+            const legL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.7, 0.15), matDark);
+            legL.position.y = -0.35;
+            const legLGroup = new THREE.Group(); legLGroup.add(legL);
+            legLGroup.position.set(-0.1, 0.7, 0); group.add(legLGroup);
+
+            const legR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.7, 0.15), matDark);
+            legR.position.y = -0.35;
+            const legRGroup = new THREE.Group(); legRGroup.add(legR);
+            legRGroup.position.set(0.1, 0.7, 0); group.add(legRGroup);
+
+            group.traverse(o => { if(o.isMesh) { o.castShadow = true; o.receiveShadow = true; }});
+            return { group, armL: armLGroup, armR: armRGroup, legL: legLGroup, legR: legRGroup, head };
+        }
+
+        function createNameLabel(name) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 256; canvas.height = 64;
+            ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; ctx.roundRect(10, 10, 236, 44, 20); ctx.fill();
+            ctx.fillStyle = "white"; ctx.font = "bold 32px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillText(name, 128, 32);
+
+            const tex = new THREE.CanvasTexture(canvas);
+            const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+            const sprite = new THREE.Sprite(mat);
+            sprite.scale.set(1.5, 0.375, 1);
+            sprite.position.y = 2.1;
+            return sprite;
+        }
+
         function updatePlayer(id, d) {
             if(!otherPlayers[id]) {
-                const humanoid = createHumanoid(d.c || '#ffffff');
-                scene.add(humanoid); 
-                otherPlayers[id] = humanoid;
-                // 初始位置直接設定，避免飛入
-                humanoid.position.set(d.x, 0, d.z);
-                humanoid.userData.targetPos.set(d.x, 0, d.z);
+                const char = createMinecraftChar(d.c || '#ffffff');
+                const label = createNameLabel(d.name || 'Unknown');
+                char.group.add(label);
+                scene.add(char.group);
+                otherPlayers[id] = { 
+                    ...char, 
+                    targetPos: new THREE.Vector3(d.x, 0, d.z),
+                    targetRot: d.ry,
+                    lastUpdate: Date.now()
+                };
             }
-            
             const p = otherPlayers[id];
-            // 只更新目標位置，讓 animate 去做平滑移動
-            p.userData.targetPos.set(d.x, 0, d.z);
-            p.userData.targetRot = d.ry;
+            p.targetPos.set(d.x, 0, d.z);
+            p.targetRot = d.ry;
+            p.lastUpdate = Date.now(); 
         }
         
         function updateArt(fid, src) {
             const f = artFrames.find(x => x.userData.id===fid);
             if(f && src) {
                 const loader = new THREE.TextureLoader();
-                // 強制加入 crossOrigin 設定
                 loader.setCrossOrigin('anonymous');
                 loader.load(src, t=>{ 
                     t.encoding=THREE.sRGBEncoding; 
                     f.material.map=t; 
+                    f.material.color.setHex(0xffffff);
                     f.material.needsUpdate=true; 
-                }, undefined, (err) => {
-                    console.warn(`Texture load failed for ${fid}:`, err);
                 });
             }
         }
 
         promptEl.addEventListener('click', ()=>targetFrame && uploadInput.click());
-        uploadInput.addEventListener('change', e => {
-            if(!e.target.files[0]||!targetFrame) return;
-            const r = new FileReader();
-            r.onload = ev => {
-                const img = new Image(); img.onload = () => {
-                    const c = document.createElement('canvas'); const ctx=c.getContext('2d');
-                    let w=img.width, h=img.height, m=1024;
-                    if(w>m||h>m){const s=Math.min(m/w,m/h);w*=s;h*=s;}
-                    c.width=w;c.height=h; ctx.drawImage(img,0,0,w,h);
-                    setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'objects', `a_${targetFrame.userData.id}`), {img:c.toDataURL('image/jpeg',0.85), t:serverTimestamp()}, { merge: true })
-                    .then(()=>alert('上傳成功'));
-                }; img.src = ev.target.result;
-            }; r.readAsDataURL(e.target.files[0]); uploadInput.value="";
+        
+        // --------------------------------------------------------
+        // 🔒 上傳邏輯：★ 畫質優化版 (800px, 0.75) ★
+        // --------------------------------------------------------
+        uploadInput.addEventListener('change', async e => {
+            if(!e.target.files[0] || !targetFrame) return;
+
+            const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'objects');
+            const docRef = doc(collectionRef, `a_${targetFrame.userData.id}`);
+            
+            try {
+                // 1. 檢查是否已有圖
+                const snapshot = await getDoc(docRef);
+                if (snapshot.exists() && snapshot.data().img) {
+                    const owner = snapshot.data().ownerName || "神秘畫家";
+                    alert(`⛔ 這裡不能畫喔！\n\n這幅畫是【${owner}】的作品。\n請找找看其他的空白畫框吧！`);
+                    uploadInput.value = "";
+                    return;
+                }
+
+                // 2. 檢查限額 3 張
+                const q = query(collectionRef, where("ownerId", "==", currentUser.uid));
+                const querySnapshot = await getDocs(q);
+                
+                if (querySnapshot.size >= 3) {
+                    alert(`🎨 您已經展出 3 幅作品囉！\n\n請先當一個最棒的觀眾，\n也去看看別的畫家分享的英雄故事，\n給他們一點鼓勵吧！👏`);
+                    uploadInput.value = "";
+                    return;
+                }
+
+                // 顯示「雲端上傳中」UI
+                uploadStatus.style.display = 'block';
+
+                // 3. 上傳 (優化參數：800px, 0.75品質)
+                const r = new FileReader();
+                r.onload = ev => {
+                    const img = new Image(); img.onload = () => {
+                        const c = document.createElement('canvas'); const ctx=c.getContext('2d');
+                        
+                        // ★★★ 關鍵修改：提升到 800px ★★★
+                        let w=img.width, h=img.height, m=800;
+                        if(w>m||h>m){const s=Math.min(m/w,m/h);w*=s;h*=s;}
+                        c.width=w;c.height=h; ctx.drawImage(img,0,0,w,h);
+                        
+                        // 使用 0.75 品質，平衡畫質與大小
+                        const base64Data = c.toDataURL('image/jpeg', 0.75);
+
+                        setDoc(docRef, 
+                            { 
+                                img: base64Data, 
+                                ownerName: myName,
+                                ownerId: currentUser.uid, 
+                                uploadTime: serverTimestamp()
+                            }, 
+                            { merge: true })
+                        .then(() => {
+                            uploadStatus.style.display = 'none'; // 隱藏上傳中
+                            alert(`✅ 上傳成功！\n\n大家現在都看得到你的傑作了！`);
+                        })
+                        .catch(err => {
+                            uploadStatus.style.display = 'none';
+                            console.error(err);
+                            // 如果真的太大了，Firebase 會報錯，這裡捕捉錯誤提示
+                            alert("❌ 上傳失敗！\n\n這張圖片的細節太多，超過了雲端限制。\n請試著換一張比較簡單的圖片，或是截圖後再上傳。");
+                        });
+                    }; img.src = ev.target.result;
+                }; r.readAsDataURL(e.target.files[0]);
+
+            } catch (err) {
+                uploadStatus.style.display = 'none';
+                console.error("檢查失敗", err);
+                alert("網路連線不穩，請稍後再試");
+            }
+            
+            uploadInput.value="";
         });
 
         function setupControls() {
-            // Mobile Joystick
             joystickZone.addEventListener('touchstart', e=>{joystickActive=true; updateJoy(e.touches[0]);}, {passive:false});
             joystickZone.addEventListener('touchmove', e=>{if(joystickActive) updateJoy(e.touches[0]); e.preventDefault();}, {passive:false});
             joystickZone.addEventListener('touchend', ()=>{joystickActive=false; joystickKnob.style.transform=`translate(-50%,-50%)`; moveVector.set(0,0,0);});
-            
-            // Mobile Look
             lookZone.addEventListener('touchstart', e=>{lookActive=true; lastLookX=e.touches[0].clientX; lastLookY=e.touches[0].clientY;}, {passive:false});
             lookZone.addEventListener('touchmove', e=>{
                 if(lookActive) {
@@ -542,18 +615,11 @@
             }, {passive:false});
             lookZone.addEventListener('touchend', ()=>lookActive=false);
 
-            // Desktop Keyboard
             document.addEventListener('keydown', e=>{switch(e.key.toLowerCase()){case 'w':moveVector.z=-1;break;case 's':moveVector.z=1;break;case 'a':moveVector.x=-1;break;case 'd':moveVector.x=1;break;}});
             document.addEventListener('keyup', e=>{switch(e.key.toLowerCase()){case 'w':case 's':moveVector.z=0;break;case 'a':case 'd':moveVector.x=0;break;}});
-            
-            // Desktop Mouse Drag to Rotate
             document.addEventListener('mousedown', () => isDragging = true);
             document.addEventListener('mouseup', () => isDragging = false);
-            document.addEventListener('mousemove', e => {
-                if(isDragging && !isMobile()) {
-                    rotateCam(e.movementX, e.movementY);
-                }
-            });
+            document.addEventListener('mousemove', e => { if(isDragging && !joystickActive) rotateCam(e.movementX, e.movementY); });
         }
         function updateJoy(t) {
             const r = joystickZone.getBoundingClientRect();
@@ -569,65 +635,100 @@
             camera.quaternion.setFromEuler(lookEuler);
         }
 
-        // --- 主迴圈 ---
+        const clock = new THREE.Clock();
+
         function animate() {
             requestAnimationFrame(animate);
             if(!isRunning) return;
 
-            // 1. 本地玩家移動
+            const dt = clock.getDelta();
+            const now = Date.now();
+
             if(moveVector.lengthSq()>0) {
-                const s = 0.2;
+                const s = 4.0 * dt; 
                 const f = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion); f.y=0; f.normalize();
                 const r = new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion); r.y=0; r.normalize();
                 const next = camera.position.clone().addScaledVector(f, -moveVector.z*s).addScaledVector(r, moveVector.x*s);
+                
                 const box = new THREE.Box3().setFromCenterAndSize(next, new THREE.Vector3(0.5,1,0.5));
                 let hit=false; for(let c of colliders) if(box.intersectsBox(c)) { hit=true; break; }
                 if(!hit) camera.position.copy(next);
             }
 
-            // 2. 更新其他玩家 (走路動畫)
-            Object.values(otherPlayers).forEach(p => {
-                // 平滑移動 (Lerp)
-                const dist = p.position.distanceTo(p.userData.targetPos);
-                if (dist > 0.01) {
-                    p.position.lerp(p.userData.targetPos, 0.1); // 0.1 是平滑係數
-                    
-                    // 走路動作
-                    p.userData.walkTime += 0.25;
-                    const angle = Math.sin(p.userData.walkTime) * 0.5; // 擺動幅度
-                    
-                    p.userData.limbs.leftLeg.rotation.x = angle;
-                    p.userData.limbs.rightLeg.rotation.x = -angle;
-                    p.userData.limbs.leftArm.rotation.x = -angle;
-                    p.userData.limbs.rightArm.rotation.x = angle;
-                } else {
-                    // 靜止時歸位
-                    p.userData.limbs.leftLeg.rotation.x = 0;
-                    p.userData.limbs.rightLeg.rotation.x = 0;
-                    p.userData.limbs.leftArm.rotation.x = 0;
-                    p.userData.limbs.rightArm.rotation.x = 0;
+            Object.keys(otherPlayers).forEach(key => {
+                const p = otherPlayers[key];
+                // 40秒 移除機制
+                if(now - p.lastUpdate > 40000) {
+                    scene.remove(p.group);
+                    delete otherPlayers[key];
+                    return;
                 }
-                
-                // 平滑旋轉 (簡單處理，直接設定)
-                p.rotation.y = p.userData.targetRot;
+                const dist = p.group.position.distanceTo(p.targetPos);
+                p.group.position.lerp(p.targetPos, 0.1);
+                p.group.rotation.y += (p.targetRot - p.group.rotation.y) * 0.1;
+
+                if(dist > 0.05) {
+                    const time = now * 0.01;
+                    p.legL.rotation.x = Math.sin(time) * 0.5;
+                    p.legR.rotation.x = -Math.sin(time) * 0.5;
+                    p.armL.rotation.x = -Math.sin(time) * 0.5;
+                    p.armR.rotation.x = Math.sin(time) * 0.5;
+                } else {
+                    p.legL.rotation.x = p.legR.rotation.x = 0;
+                    p.armL.rotation.x = p.armR.rotation.x = 0;
+                }
             });
 
-            // 3. 互動檢測
             raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
             const hits = raycaster.intersectObjects(artFrames);
             if(hits.length>0 && hits[0].distance<8) {
                 if(targetFrame!==hits[0].object) {
                     targetFrame=hits[0].object;
                     promptEl.style.display='block';
-                    promptEl.innerText = `更換畫作`;
                 }
             } else { targetFrame=null; promptEl.style.display='none'; }
-            
+
             renderer.render(scene, camera);
         }
+
         function onResize() {
             camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth,window.innerHeight);
         }
+
+        // --------------------------------------------------------
+        // 🗑️ 管理員功能：一鍵清空美術館 (密碼: admin123)
+        // --------------------------------------------------------
+        window.resetMuseum = async () => {
+            const password = prompt("請輸入管理員密碼以清空美術館：");
+            if(password !== "admin123") {
+                alert("密碼錯誤");
+                return;
+            }
+            
+            if(!confirm("警告：此操作將刪除「所有」學生的畫作！\n確定要清空嗎？")) return;
+
+            const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'objects');
+            const q = query(collectionRef); 
+            const snapshot = await getDocs(q);
+            
+            const batch = writeBatch(db);
+            let count = 0;
+
+            snapshot.forEach(doc => {
+                if(doc.id.startsWith('a_')) { 
+                    batch.delete(doc.ref);
+                    count++;
+                }
+            });
+
+            if(count > 0) {
+                await batch.commit();
+                alert(`成功清除 ${count} 幅作品！美術館已重置。`);
+                location.reload(); 
+            } else {
+                alert("目前是空的，不需要清除。");
+            }
+        };
     </script>
 </body>
 </html>
