@@ -312,8 +312,9 @@
             addArt('Hall_N_R', 10, 4, -12 + FRAME_OFF, 0, 3.5, 3.5);
             addArt('Hall_S_L', -10, 4, 12 - FRAME_OFF, Math.PI, 3.5, 3.5);
             addArt('Hall_S_R', 10, 4, 12 - FRAME_OFF, Math.PI, 3.5, 3.5);
-            addArt('Hall_W_Top', -16 + FRAME_OFF, 4, -9, Math.PI/2, 3.5, 3.5);
-            addArt('Hall_W_Bot', -16 + FRAME_OFF, 4, 9, Math.PI/2, 3.5, 3.5);
+            // ★★★ 修正 2：將畫框往中間 Z= -9->-6 和 9->6 移動，避免被柱子擋住 ★★★
+            addArt('Hall_W_Top', -16 + FRAME_OFF, 4, -6, Math.PI/2, 3.5, 3.5);
+            addArt('Hall_W_Bot', -16 + FRAME_OFF, 4, 6, Math.PI/2, 3.5, 3.5);
             addArt('Hall_E_Top', 16 - FRAME_OFF, 4, -9, -Math.PI/2, 3.5, 3.5);
             addArt('Hall_E_Bot', 16 - FRAME_OFF, 4, 9, -Math.PI/2, 3.5, 3.5);
 
@@ -321,21 +322,20 @@
             addArt('Center_S', 0, 3.5, 5 + FRAME_OFF, 0, 3.5, 2.5);
             addArt('Center_N', 0, 3.5, 5 - FRAME_OFF, Math.PI, 3.5, 2.5);
 
-            // 2. 東側寬畫廊 (已修正為有開口的牆面)
-            // 北側牆面 (左/右段)
+            // 2. 東側寬畫廊
             addWall(21, -15, 10, 8, 0); 
             addWall(43, -15, 18, 8, 0); 
-            // 南側牆面 (左/右段)
             addWall(21, 15, 10, 8, 0);  
             addWall(43, 15, 18, 8, 0);  
 
-            // ★ 加密的外牆畫作
-            addArt('Wide_N_1', 29, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
+            // ★★★ 修正 1：將原本擋住側廳入口(X=29)的畫作，移動到入口旁的空牆面 (X=22) ★★★
+            addArt('Wide_N_1', 22, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
             addArt('Wide_N_2', 35, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
             addArt('Wide_N_3', 41, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
             addArt('Wide_N_4', 47, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
 
-            addArt('Wide_S_1', 29, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5);
+            // 同步修正南側
+            addArt('Wide_S_1', 22, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5);
             addArt('Wide_S_2', 35, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5);
             addArt('Wide_S_3', 41, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5);
             addArt('Wide_S_4', 47, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5);
@@ -392,9 +392,7 @@
             
             addWall(mx, -5, 15, 8, 0); addWall(mx, 5, 15, 8, 0);
             addArt('Maze_Div_1', mx, 4, -5 - FRAME_OFF, Math.PI, 3.5, 3.5);
-            // ★★★ 修正處：移除了原本多餘的 + 0.1 ★★★
             addArt('Maze_Div_2', mx, 4, -5 + FRAME_OFF, 0, 3.5, 3.5); 
-            // ★★★ 修正處：移除了原本多餘的 - 0.1 ★★★
             addArt('Maze_Div_3', mx, 4, 5 - FRAME_OFF, Math.PI, 3.5, 3.5);
             addArt('Maze_Div_4', mx, 4, 5 + FRAME_OFF, 0, 3.5, 3.5);
 
