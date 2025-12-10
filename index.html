@@ -2,10 +2,10 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="referrer" content="no-referrer"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>智慧策展美術館 - v16 終極保命版</title>
+    <title>智慧策展美術館 - Cloudinary 圖床版</title>
     <style>
+        /* CSS 樣式：保持原樣 */
         body { margin: 0; overflow: hidden; font-family: 'Microsoft JhengHei', sans-serif; background-color: #000; user-select: none; -webkit-user-select: none; }
         
         #start-screen {
@@ -63,11 +63,7 @@
             white-space: pre-line;
         }
 
-        #status {
-            position: absolute; top: 20px; left: 20px;
-            color: rgba(255,255,255,0.4); font-size: 12px;
-            display: none;
-        }
+        #status { position: absolute; top: 20px; left: 20px; color: rgba(255,255,255,0.4); font-size: 12px; display: none; }
 
         #joystick-zone {
             position: absolute; bottom: 40px; left: 30px; width: 120px; height: 120px;
@@ -91,7 +87,7 @@
 
     <div id="start-screen">
         <h1>THE GALLERY</h1>
-        <p class="subtitle">英雄故事策展計畫 (v16)</p>
+        <p class="subtitle">英雄故事策展計畫</p>
         <input type="text" id="name-input" placeholder="請輸入您的名稱" maxlength="10" autocomplete="off">
         <button id="start-btn">進入展場</button>
         <div id="loading-text"></div>
@@ -115,37 +111,41 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, deleteDoc, getDoc, getDocs, query, where, onSnapshot, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --------------------------------------------------------
-        // 🔧 Firebase 設定區 (請確認這裡是最新的)
-        // --------------------------------------------------------
-        let firebaseConfig;
+        // ========================================================
+        // 🔧 1. Firebase 設定 (請填入你的)
+        // ========================================================
+        const firebaseConfig = {
+              apiKey: "AIzaSyDI14orpnwyFuayclLhdRkzdTrts4nGgM4",
+              authDomain: "museum01-7e149.firebaseapp.com",
+              projectId: "museum01-7e149",
+              storageBucket: "museum01-7e149.firebasestorage.app",
+              messagingSenderId: "946144736824",
+              appId: "1:946144736824:web:c1360032325b2f62a5d8cd",
+              measurementId: "G-NSGTGTYHZZ"
+        };
+
+        // ========================================================
+        // ☁️ 2. Cloudinary 設定 (請填入你的)
+        // ========================================================
+        // Cloud Name: 登入後 Dashboard 左上角可以看到
+        const CLOUDINARY_CLOUD_NAME = "dllwu8dwu"; 
         
-        // ★ 使用 v16-safe: 強制使用極限壓縮，確保資料庫存得下
-        let appId = 'smart-museum-v16-safe'; 
+        // Upload Preset: Settings -> Upload -> Add upload preset (Mode 要選 Unsigned)
+        const CLOUDINARY_UPLOAD_PRESET = "museum_upload"; 
 
-        if (typeof __firebase_config !== 'undefined') {
-            firebaseConfig = JSON.parse(__firebase_config);
-        } else {
-            // ★ 請填入你的 Config (這裡不需要 storageBucket 了)
-            firebaseConfig = {
-                  apiKey: "AIzaSyDI14orpnwyFuayclLhdRkzdTrts4nGgM4",
-                  authDomain: "museum01-7e149.firebaseapp.com",
-                  projectId: "museum01-7e149",
-                  storageBucket: "museum01-7e149.firebasestorage.app",
-                  messagingSenderId: "946144736824",
-                  appId: "1:946144736824:web:c1360032325b2f62a5d8cd",
-                  measurementId: "G-NSGTGTYHZZ"
-            };
-        }
-
+        // --------------------------------------------------------
+        
+        // 使用 v18 確保是乾淨的空間
+        let appId = 'smart-museum-v18-cloudinary'; 
         let app, auth, db;
+
         try {
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
             db = getFirestore(app);
         } catch (e) {
             console.error("Firebase 初始化失敗:", e);
-            alert("⚠️ 設定錯誤：請檢查 Config！");
+            alert("Firebase 設定有誤，請按 F12 檢查 Config。");
         }
 
         let currentUser = null;
@@ -257,6 +257,8 @@
             renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+            renderer.shadowMap.enabled = true;
+            renderer.outputEncoding = THREE.sRGBEncoding;
             document.body.appendChild(renderer.domElement);
 
             const ambient = new THREE.AmbientLight(0xffffff, 0.6); 
@@ -409,7 +411,7 @@
         function startNetworkSync() {
             let lastX=0, lastZ=0, lastRy=0;
             
-            // 監聽畫作更新 (重要：確保 artFrames 已經建立)
+            // 監聽畫作更新
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'objects'), s => {
                 s.docChanges().forEach(c => {
                     const d = c.doc.data(); 
@@ -421,7 +423,7 @@
                             delete otherPlayers[id];
                         }
                     } else {
-                        // 畫作同步 (Base64)
+                        // ★ 收到畫作更新，讀取 URL
                         if(id.startsWith('a_')) {
                             updateArt(id.replace('a_',''), d.img);
                         }
@@ -432,7 +434,7 @@
                 });
             });
 
-            // 位置同步 (節流)
+            // 位置同步
             setInterval(() => {
                 if(!currentUser) return;
                 const p = camera.position;
@@ -533,6 +535,7 @@
         function updateArt(fid, src) {
             const f = artFrames.find(x => x.userData.id===fid);
             if(f && src) {
+                // ★ 這裡開啟跨域存取，Cloudinary 支援
                 const loader = new THREE.TextureLoader();
                 loader.setCrossOrigin('anonymous');
                 loader.load(src, t=>{ 
@@ -547,29 +550,15 @@
         promptEl.addEventListener('click', ()=>targetFrame && uploadInput.click());
         
         // --------------------------------------------------------
-        // 🔒 上傳邏輯：★ 512px 極限壓縮，資料庫存 Base64 ★
+        // ★ Cloudinary 上傳邏輯 (無需後端)
         // --------------------------------------------------------
-        async function compressImage(img, maxWidth, quality) {
-            const c = document.createElement('canvas');
-            const ctx = c.getContext('2d');
-            let w = img.width, h = img.height;
-            if(w > maxWidth || h > maxWidth) {
-                const ratio = Math.min(maxWidth/w, maxWidth/h);
-                w *= ratio; h *= ratio;
-            }
-            c.width = w; c.height = h;
-            ctx.drawImage(img, 0, 0, w, h);
-            // 強制使用 JPEG, 0.5 品質 (最安全，保證 < 500KB)
-            return c.toDataURL('image/jpeg', quality);
-        }
-
         uploadInput.addEventListener('change', async e => {
             if(!e.target.files[0] || !targetFrame) return;
 
+            // 1. 檢查權限 (Firestore)
             const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'objects', `a_${targetFrame.userData.id}`);
             
             try {
-                // 1. 檢查圖
                 const snapshot = await getDoc(docRef);
                 if (snapshot.exists() && snapshot.data().img) {
                     alert(`⛔ 這裡不能畫喔！這幅畫已經有主人了。`);
@@ -587,51 +576,44 @@
                     return;
                 }
 
-                // 3. 壓縮上傳
-                uploadStatus.innerHTML = "☁️ 雲端存檔中...<br><span style='font-size:12px'>(請稍候...)</span>";
+                // 3. 開始上傳至 Cloudinary
+                uploadStatus.innerHTML = "☁️ 正在上傳至雲端圖床...<br><span style='font-size:12px'>(請稍候...)</span>";
                 uploadStatus.style.display = 'block';
 
-                const r = new FileReader();
-                r.onload = ev => {
-                    const img = new Image(); 
-                    img.onload = async () => {
-                        let finalData = null;
-                        
-                        // ★ 極限壓縮：512px, 0.5 品質 (絕對安全)
-                        finalData = await compressImage(img, 512, 0.5); 
+                const file = e.target.files[0];
+                const formData = new FormData();
+                formData.append('file', file);
+                // 這裡填入 Cloudinary 的 upload_preset
+                formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET); 
 
-                        // 檢查大小 (確保小於 950KB)
-                        if(finalData.length > 950000) {
-                            uploadStatus.style.display = 'none';
-                            alert("❌ 圖片實在太大了！即使壓縮也無法上傳。\n請換一張簡單一點的圖片。");
-                            return;
-                        }
+                // 發送 POST 請求
+                const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
 
-                        // 寫入資料庫
-                        setDoc(docRef, { 
-                            img: finalData, 
-                            ownerName: myName,
-                            ownerId: currentUser.uid, 
-                            uploadTime: serverTimestamp()
-                        }, { merge: true })
-                        .then(() => {
-                            uploadStatus.style.display = 'none'; 
-                            alert(`✅ 上傳成功！\n\n圖片已成功存入資料庫。`);
-                        })
-                        .catch(err => {
-                            uploadStatus.style.display = 'none';
-                            console.error(err);
-                            alert(`❌ 存檔失敗！\n錯誤代碼: ${err.code}\n請檢查 Firebase 規則是否設定正確。`);
-                        });
-                    }; 
-                    img.src = ev.target.result;
-                }; r.readAsDataURL(e.target.files[0]);
+                if(!res.ok) throw new Error("Cloudinary 上傳失敗");
+
+                const data = await res.json();
+                const imageUrl = data.secure_url; // 取得圖片網址
+
+                // 4. 將網址存入 Firestore
+                await setDoc(docRef, { 
+                    img: imageUrl, 
+                    ownerName: myName,
+                    ownerId: currentUser.uid, 
+                    uploadTime: serverTimestamp()
+                }, { merge: true });
+
+                uploadStatus.style.display = 'none'; 
+                alert(`✅ 上傳成功！\n作品已永久保存 (Cloudinary)。`);
 
             } catch (err) {
                 uploadStatus.style.display = 'none';
                 console.error(err);
-                alert("發生錯誤，請重試");
+                alert("❌ 上傳失敗，請檢查 Cloudinary 設定！");
             }
+            
             uploadInput.value="";
         });
 
