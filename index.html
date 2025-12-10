@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>智慧策展美術館 - v31 完美出生點版</title>
+    <title>智慧策展美術館 - v32 空間修復版</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Microsoft JhengHei', sans-serif; background-color: #000; user-select: none; -webkit-user-select: none; }
         
@@ -86,7 +86,7 @@
 
     <div id="start-screen">
         <h1>THE GALLERY</h1>
-        <p class="subtitle">英雄故事策展計畫 (v31)</p>
+        <p class="subtitle">英雄故事策展計畫 (v32)</p>
         <input type="text" id="name-input" placeholder="請輸入您的名稱" maxlength="10" autocomplete="off">
         <button id="start-btn">進入展場</button>
         <div id="loading-text"></div>
@@ -131,7 +131,7 @@
 
         // --------------------------------------------------------
         
-        let appId = 'smart-museum-v31-spawn-fix'; 
+        let appId = 'smart-museum-v32-geometry-fix'; // v32 幾何修復版
         let app, auth, db;
 
         try {
@@ -214,26 +214,18 @@
             }
         }
 
-        // ★★★ 真．隨機出生點 (Random Area Distribution) ★★★
+        // 隨機出生點 (安全區域)
         function getSafeSpawnPoint() {
-            // 定義三個「安全出生區塊」 (x範圍, z範圍, 面向)
             const zones = [
-                { x: [-5, 5], z: [-5, 5], r: 0 },          // 中央大廳區
-                { x: [25, 45], z: [-5, 5], r: -1.57 },     // 東側畫廊區
-                { x: [-18, -12], z: [-5, 5], r: 1.57 }     // 西側大廳區
+                { x: [-5, 5], z: [-5, 5], r: 0 },          // 中央
+                { x: [25, 45], z: [-5, 5], r: -1.57 },     // 東側畫廊走道
+                { x: [-18, -12], z: [-5, 5], r: 1.57 }     // 西側
             ];
-
-            // 1. 隨機選一個區域
             const zone = zones[Math.floor(Math.random() * zones.length)];
-            
-            // 2. 在區域內隨機選一個點
-            const randX = zone.x[0] + Math.random() * (zone.x[1] - zone.x[0]);
-            const randZ = zone.z[0] + Math.random() * (zone.z[1] - zone.z[0]);
-
             return {
-                x: randX,
+                x: zone.x[0] + Math.random() * (zone.x[1] - zone.x[0]),
                 y: 2.55, 
-                z: randZ,
+                z: zone.z[0] + Math.random() * (zone.z[1] - zone.z[0]),
                 r: zone.r
             };
         }
@@ -263,7 +255,7 @@
             const fill = new THREE.DirectionalLight(0xddeeff, 0.3);
             fill.position.set(-20, 30, -20); scene.add(fill);
 
-            buildSceneV31(); // ★ v31 修正版場景
+            buildSceneV32(); // ★ v32 幾何修復版
 
             raycaster = new THREE.Raycaster();
             setupControls();
@@ -278,7 +270,7 @@
             animate();
         }
 
-        function buildSceneV31() {
+        function buildSceneV32() {
             const matWood = new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 0.4 }); 
             const matWall = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.9 });
             const matCeil = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 1.0 });
@@ -296,8 +288,8 @@
             };
             addRug(0, 0, 16, 16, matRugMain); 
             addRug(32, 0, 30, 20, matRugMain); 
-            addRug(26, -20, 10, 12, matRugMain); 
-            addRug(26, 20, 10, 12, matRugMain);
+            addRug(30, -22, 12, 12, matRugMain); // 側廳地毯調整
+            addRug(30, 22, 12, 12, matRugMain);
             addRug(-16, 0, 12, 20, matRugMain);
             addRug(54, 0, 10, 10, matRugRotunda);
 
@@ -309,26 +301,12 @@
                 colliders.push(new THREE.Box3().setFromObject(mesh));
             };
 
-            // ==========================================
-            // 1. 中央大廳 (★ Clean Up: 移除重疊柱子)
-            // ==========================================
-            // 北牆 (左右各一段)
-            addWall(-10, -12, 12, 8, 0); 
-            addWall(10, -12, 12, 8, 0);  
-            
-            // 南牆 (左右各一段)
-            addWall(-10, 12, 12, 8, 0); 
-            addWall(10, 12, 12, 8, 0);
+            // 1. 中央大廳
+            addWall(-10, -12, 12, 8, 0); addWall(10, -12, 12, 8, 0);  
+            addWall(-10, 12, 12, 8, 0); addWall(10, 12, 12, 8, 0);
+            addWall(-16, -10, 12, 8, Math.PI/2); addWall(-16, 10, 12, 8, Math.PI/2);
+            addWall(16, -10, 12, 8, Math.PI/2); addWall(16, 10, 12, 8, Math.PI/2);
 
-            // 西牆 (上下各一段)
-            addWall(-16, -10, 12, 8, Math.PI/2); 
-            addWall(-16, 10, 12, 8, Math.PI/2);
-
-            // 東牆 (上下各一段)
-            addWall(16, -10, 12, 8, Math.PI/2);
-            addWall(16, 10, 12, 8, Math.PI/2);
-
-            // 中央畫框
             addArt('Hall_N_L', -10, 4, -12 + FRAME_OFF, 0, 3.5, 3.5);
             addArt('Hall_N_R', 10, 4, -12 + FRAME_OFF, 0, 3.5, 3.5);
             addArt('Hall_S_L', -10, 4, 12 - FRAME_OFF, Math.PI, 3.5, 3.5);
@@ -338,55 +316,57 @@
             addArt('Hall_E_Top', 16 - FRAME_OFF, 4, -9, -Math.PI/2, 3.5, 3.5);
             addArt('Hall_E_Bot', 16 - FRAME_OFF, 4, 9, -Math.PI/2, 3.5, 3.5);
 
-            // ★ 修正重點：中央矮牆 (屏風) ★
-            // 將厚度稍微加厚一點點避免 Z-fighting，並確保畫框位置正確
-            // 原本在 Z=5，畫框在 5+OFFSET。現在修正為 Z=0 比較乾淨，或者維持 Z=5 但算準座標
-            addWall(0, 5, 8, 5, 0); 
-            // 畫框微調：z = 5 + 1.2/2 + 0.05 = 5.65
-            addArt('Center_S', 0, 3.5, 5 + 0.7, 0, 3.5, 2.5); // 修正 Z 軸
-            addArt('Center_N', 0, 3.5, 5 - 0.7, Math.PI, 3.5, 2.5); // 修正 Z 軸
+            // 中央矮牆 (Z=0, 乾淨位置)
+            addWall(0, 0, 8, 5, 0); 
+            addArt('Center_S', 0, 3.5, 0 + 0.7, 0, 3.5, 2.5);
+            addArt('Center_N', 0, 3.5, 0 - 0.7, Math.PI, 3.5, 2.5);
 
-            // ==========================================
-            // 2. 東側寬畫廊 (中島)
-            // ==========================================
-            // 這裡不再加 addWall(22, ...) 這種連接牆，直接由大廳牆和畫廊牆組成
-            addWall(40, -15, 24, 8, 0); // 北長牆
-            addWall(40, 15, 24, 8, 0);  // 南長牆
+            // 2. 東側寬畫廊 (★ 幾何切割修復：避免與側廳重疊)
+            // 北側牆面切割：
+            addWall(20, -15, 8, 8, 0); // 前段 (16~24)
+            addWall(44, -15, 16, 8, 0); // 後段 (36~52)
+            // 南側牆面切割：
+            addWall(20, 15, 8, 8, 0);  // 前段
+            addWall(44, 15, 16, 8, 0); // 後段
 
-            addArt('Wide_N_1', 29, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
-            addArt('Wide_N_2', 35, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
-            addArt('Wide_N_3', 41, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
-            addArt('Wide_N_4', 47, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
+            // 畫廊牆面畫作
+            addArt('Wide_N_1', 20, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
+            addArt('Wide_N_2', 40, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
+            addArt('Wide_N_3', 48, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
 
-            addArt('Wide_S_1', 29, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5);
-            addArt('Wide_S_2', 35, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5);
-            addArt('Wide_S_3', 41, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5);
-            addArt('Wide_S_4', 47, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5);
+            addArt('Wide_S_1', 20, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5);
+            addArt('Wide_S_2', 40, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5);
+            addArt('Wide_S_3', 48, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5);
 
-            // 中島 1
-            addWall(32, 0, 10, 6, 0); 
-            addArt('Mid_1_N_L', 30, 4, -0 - 0.7, Math.PI, 3, 3);
-            addArt('Mid_1_N_R', 34, 4, -0 - 0.7, Math.PI, 3, 3);
-            addArt('Mid_1_S_L', 30, 4, 0 + 0.7, 0, 3, 3);
-            addArt('Mid_1_S_R', 34, 4, 0 + 0.7, 0, 3, 3);
+            // ★ 中島展牆 (對齊實體牆面位置，避免擋路)
+            // 中島1 (對齊前段牆)
+            addWall(20, 0, 6, 6, 0);
+            addArt('Mid_1_N', 20, 4, -0.7, Math.PI, 3, 3);
+            addArt('Mid_1_S', 20, 4, 0.7, 0, 3, 3);
 
-            // 中島 2
-            addWall(44, 0, 10, 6, 0);
-            addArt('Mid_2_N_L', 42, 4, -0 - 0.7, Math.PI, 3, 3); 
-            addArt('Mid_2_N_R', 46, 4, -0 - 0.7, Math.PI, 3, 3); 
-            addArt('Mid_2_S_L', 42, 4, 0 + 0.7, 0, 3, 3);       
-            addArt('Mid_2_S_R', 46, 4, 0 + 0.7, 0, 3, 3);       
+            // 中島2 (對齊後段牆)
+            addWall(44, 0, 14, 6, 0);
+            addArt('Mid_2_N1', 40, 4, -0.7, Math.PI, 3, 3);
+            addArt('Mid_2_N2', 48, 4, -0.7, Math.PI, 3, 3);
+            addArt('Mid_2_S1', 40, 4, 0.7, 0, 3, 3);
+            addArt('Mid_2_S2', 48, 4, 0.7, 0, 3, 3);
 
-            // 側廳
-            addWall(26, -20, 10, 8, Math.PI/2); addWall(34, -20, 10, 8, Math.PI/2); addWall(30, -25, 8, 8, 0);
-            addArt('Alc_N_W', 26 + FRAME_OFF, 4, -20, Math.PI/2, 3, 3);
-            addArt('Alc_N_E', 34 - FRAME_OFF, 4, -20, -Math.PI/2, 3, 3);
-            addArt('Alc_N_B', 30, 4, -25 + FRAME_OFF, 0, 4, 3);
+            // ★ 側廳 (Alcoves) - 接合在切割處 (X=24~36)
+            // 北側廳
+            addWall(24, -22, 14, 8, Math.PI/2); // 西
+            addWall(36, -22, 14, 8, Math.PI/2); // 東
+            addWall(30, -29, 12, 8, 0);         // 後
+            addArt('Alc_N_W', 24 + FRAME_OFF, 4, -22, Math.PI/2, 3, 3);
+            addArt('Alc_N_E', 36 - FRAME_OFF, 4, -22, -Math.PI/2, 3, 3);
+            addArt('Alc_N_B', 30, 4, -29 + FRAME_OFF, 0, 5, 3);
 
-            addWall(26, 20, 10, 8, Math.PI/2); addWall(34, 20, 10, 8, Math.PI/2); addWall(30, 25, 8, 8, 0);
-            addArt('Alc_S_W', 26 + FRAME_OFF, 4, 20, Math.PI/2, 3, 3);
-            addArt('Alc_S_E', 34 - FRAME_OFF, 4, 20, -Math.PI/2, 3, 3);
-            addArt('Alc_S_B', 30, 4, 25 - FRAME_OFF, Math.PI, 4, 3);
+            // 南側廳
+            addWall(24, 22, 14, 8, Math.PI/2); // 西
+            addWall(36, 22, 14, 8, Math.PI/2); // 東
+            addWall(30, 29, 12, 8, 0);         // 後
+            addArt('Alc_S_W', 24 + FRAME_OFF, 4, 22, Math.PI/2, 3, 3);
+            addArt('Alc_S_E', 36 - FRAME_OFF, 4, 22, -Math.PI/2, 3, 3);
+            addArt('Alc_S_B', 30, 4, 29 - FRAME_OFF, Math.PI, 5, 3);
 
             // 3. 圓廳
             addWall(52, -10.5, 9, 8, Math.PI/2); addWall(52, 10.5, 9, 8, Math.PI/2);
@@ -394,8 +374,7 @@
             for(let i=0; i<seg; i++) {
                 const a = (i/seg)*Math.PI*2;
                 if(a > Math.PI*0.8 && a < Math.PI*1.2) continue;
-                const w = (Math.PI*2*rad)/seg + 0.6;
-                addWall(cx+Math.cos(a)*rad, cz+Math.sin(a)*rad, w, 8, -a+Math.PI/2);
+                addWall(cx+Math.cos(a)*rad, cz+Math.sin(a)*rad, (Math.PI*2*rad)/seg + 0.6, 8, -a+Math.PI/2);
                 addArt(`Rot_${i}`, cx+Math.cos(a)*(rad-0.65), 4, cz+Math.sin(a)*(rad-0.65), -a+Math.PI*1.5, 3.0, 4.2);
             }
 
@@ -482,7 +461,7 @@
                 statusEl.innerText=`● ${myName} (線上)`; 
                 statusEl.style.color="#c0a060"; 
                 
-                // ★ 隨機出生點
+                // ★ 隨機出生點 (安全區域)
                 const spawn = getSafeSpawnPoint();
                 camera.position.set(spawn.x, spawn.y, spawn.z);
                 camera.rotation.y = spawn.r;
@@ -523,6 +502,7 @@
             }, 500);
         }
 
+        // --- 人物模型 (放大 1.5 倍) ---
         function createMinecraftChar(colorHex) {
             const group = new THREE.Group();
             const color = new THREE.Color(colorHex);
