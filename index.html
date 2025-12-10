@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="referrer" content="no-referrer"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>智慧策展美術館 - v10 穩定教學版</title>
+    <title>智慧策展美術館 - v11 永存版</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Microsoft JhengHei', sans-serif; background-color: #000; user-select: none; -webkit-user-select: none; }
         
@@ -56,10 +56,10 @@
 
         #upload-status {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.8); color: #fff; padding: 20px 40px;
+            background: rgba(0,0,0,0.9); color: #fff; padding: 20px 40px;
             border-radius: 10px; border: 2px solid #c0a060;
             font-size: 18px; display: none; z-index: 5000;
-            text-align: center;
+            text-align: center; box-shadow: 0 0 20px rgba(0,0,0,0.8);
         }
 
         #status {
@@ -100,7 +100,7 @@
         <div id="status">● 連線中...</div>
         <div id="crosshair"></div>
         <div id="interaction-prompt">點擊上傳作品</div>
-        <div id="upload-status">☁️ 雲端存檔中...<br><span style="font-size:12px; color:#aaa;">(請勿關閉視窗)</span></div>
+        <div id="upload-status"></div>
     </div>
 
     <div id="joystick-zone"><div id="joystick-knob"></div></div>
@@ -110,34 +110,32 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script type="module">
-        // 導入 Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, deleteDoc, getDoc, getDocs, query, where, onSnapshot, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --------------------------------------------------------
-        // 🔧 步驟一：請將你的新 Firebase 設定貼在下方
+        // 🔧 Firebase 設定區 (請確認這裡是最新的)
         // --------------------------------------------------------
         let firebaseConfig;
         
-        // 如果這裡沒貼設定，請填入你的新專案 Config
+        // ★ 使用 v11 作為版本號
+        let appId = 'smart-museum-v11-webp'; 
+
         if (typeof __firebase_config !== 'undefined') {
             firebaseConfig = JSON.parse(__firebase_config);
         } else {
-            // ★★★ 請替換成你剛剛申請的新專案設定 ★★★
+            // ★ 請確認這裡是你新專案的 Config ★
             firebaseConfig = {
-                  apiKey: "AIzaSyDI14orpnwyFuayclLhdRkzdTrts4nGgM4",
-                  authDomain: "museum01-7e149.firebaseapp.com",
-                  projectId: "museum01-7e149",
-                  storageBucket: "museum01-7e149.firebasestorage.app",
-                  messagingSenderId: "946144736824",
-                  appId: "1:946144736824:web:c1360032325b2f62a5d8cd",
-                  measurementId: "G-NSGTGTYHZZ"
+                apiKey: "AIzaSyDI14orpnwyFuayclLhdRkzdTrts4nGgM4",
+                authDomain: "museum01-7e149.firebaseapp.com",
+                projectId: "museum01-7e149",
+                storageBucket: "museum01-7e149.firebasestorage.app",
+                messagingSenderId: "946144736824",
+                appId: "1:946144736824:web:c1360032325b2f62a5d8cd",
+                measurementId: "G-NSGTGTYHZZ"
             };
         }
-
-        // 使用 v10 作為唯一識別碼
-        let appId = 'smart-museum-v10-final'; 
 
         let app, auth, db;
         try {
@@ -145,8 +143,8 @@
             auth = getAuth(app);
             db = getFirestore(app);
         } catch (e) {
-            console.error("Firebase 設定錯誤，請檢查 Config:", e);
-            alert("Firebase 連線設定錯誤，請按 F12 查看 Console");
+            console.error("Firebase 初始化失敗:", e);
+            alert("⚠️ 初始化失敗：請檢查 Config 是否正確");
         }
 
         let currentUser = null;
@@ -179,7 +177,7 @@
             
             startBtn.style.display = 'none';
             nameInput.style.display = 'none';
-            loadingText.innerText = "正在進入元宇宙...";
+            loadingText.innerText = "正在連線到美術館...";
 
             if(!isRunning) {
                 init3D();
@@ -390,6 +388,7 @@
             } catch(e){
                 console.error("Auth Error:", e);
                 statusEl.innerText = "● 連線失敗"; statusEl.style.color = "red";
+                alert("連線失敗！請檢查網域設定或 Firebase 規則。");
             }
         }
 
@@ -402,39 +401,10 @@
             } 
         });
 
-        // --------------------------------------------------------
-        // 📉 關鍵修改：省流量網路同步 (Debounce + Threshold)
-        // --------------------------------------------------------
         function startNetworkSync() {
             let lastX=0, lastZ=0, lastRy=0;
-
-            // 1. 每 0.5 秒才檢查一次，大幅減少寫入頻率 (省錢關鍵!)
-            setInterval(() => {
-                if(!currentUser) return;
-                
-                const p = camera.position;
-                const ry = camera.rotation.y;
-
-                // 2. 只有位置改變超過 0.1 才上傳
-                if (Math.abs(p.x - lastX) > 0.1 || Math.abs(p.z - lastZ) > 0.1 || Math.abs(ry - lastRy) > 0.1) {
-                    
-                    setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'objects', `p_${currentUser.uid}`), 
-                        {
-                            x: parseFloat(p.x.toFixed(2)), 
-                            y: parseFloat(p.y.toFixed(2)), 
-                            z: parseFloat(p.z.toFixed(2)), 
-                            ry: parseFloat(ry.toFixed(2)), 
-                            name: myName, 
-                            c: '#' + myColor,
-                            t: Date.now() 
-                        }
-                    ).catch(e => console.warn("Sync skipped:", e)); // 忽略偶發的網路錯誤
-
-                    lastX = p.x; lastZ = p.z; lastRy = ry;
-                }
-            }, 500); 
             
-            // 監聽
+            // 監聽所有變化 (包含一開始的資料)
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'objects'), s => {
                 s.docChanges().forEach(c => {
                     const d = c.doc.data(); 
@@ -446,13 +416,39 @@
                             delete otherPlayers[id];
                         }
                     } else {
-                        if(id.startsWith('a_')) updateArt(id.replace('a_',''), d.img);
+                        // 更新畫作
+                        if(id.startsWith('a_')) {
+                            updateArt(id.replace('a_',''), d.img);
+                        }
+                        // 更新玩家
                         if(id.startsWith('p_') && id !== `p_${currentUser.uid}`) {
                             updatePlayer(id, d);
                         }
                     }
                 });
             });
+
+            // 上傳位置
+            setInterval(() => {
+                if(!currentUser) return;
+                const p = camera.position;
+                const ry = camera.rotation.y;
+
+                if (Math.abs(p.x - lastX) > 0.1 || Math.abs(p.z - lastZ) > 0.1 || Math.abs(ry - lastRy) > 0.1) {
+                    setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'objects', `p_${currentUser.uid}`), 
+                        {
+                            x: parseFloat(p.x.toFixed(2)), 
+                            y: parseFloat(p.y.toFixed(2)), 
+                            z: parseFloat(p.z.toFixed(2)), 
+                            ry: parseFloat(ry.toFixed(2)), 
+                            name: myName, 
+                            c: '#' + myColor,
+                            t: Date.now() 
+                        }
+                    ).catch(e => console.warn("位置同步失敗", e));
+                    lastX = p.x; lastZ = p.z; lastRy = ry;
+                }
+            }, 500);
         }
 
         function createMinecraftChar(colorHex) {
@@ -544,7 +540,7 @@
         promptEl.addEventListener('click', ()=>targetFrame && uploadInput.click());
         
         // --------------------------------------------------------
-        // 🔒 上傳邏輯：★ 平衡版 (800px, 0.75品質) ★
+        // 🔒 上傳邏輯：★ 改用 WebP 格式 + 強制檢查 ★
         // --------------------------------------------------------
         uploadInput.addEventListener('change', async e => {
             if(!e.target.files[0] || !targetFrame) return;
@@ -572,21 +568,29 @@
                     return;
                 }
 
-                // 顯示狀態
+                // 3. 準備上傳
+                uploadStatus.innerHTML = "☁️ 正在處理並上傳圖片...<br><span style='font-size:12px'>(請稍候...)</span>";
                 uploadStatus.style.display = 'block';
 
-                // 3. 上傳
                 const r = new FileReader();
                 r.onload = ev => {
                     const img = new Image(); img.onload = () => {
                         const c = document.createElement('canvas'); const ctx=c.getContext('2d');
                         
-                        // ★★★ 關鍵參數：800px + 0.75 Quality (約 150KB-400KB)，安全且清晰 ★★★
+                        // ★ 調整：解析度 800px，確保畫質與大小的平衡 ★
                         let w=img.width, h=img.height, m=800;
                         if(w>m||h>m){const s=Math.min(m/w,m/h);w*=s;h*=s;}
                         c.width=w;c.height=h; ctx.drawImage(img,0,0,w,h);
                         
-                        const base64Data = c.toDataURL('image/jpeg', 0.75);
+                        // ★ 關鍵：改用 image/webp (畫質更好，檔案更小) ★
+                        const base64Data = c.toDataURL('image/webp', 0.6); 
+
+                        // 檢查檔案大小是否超過 Firebase 極限 (保留 100KB 緩衝)
+                        if(base64Data.length > 900000) {
+                            uploadStatus.style.display = 'none';
+                            alert("❌ 圖片太大了！\n\n即使壓縮後仍然超過雲端限制。\n請換一張比較簡單的圖片試試看。");
+                            return;
+                        }
 
                         setDoc(docRef, 
                             { 
@@ -598,12 +602,12 @@
                             { merge: true })
                         .then(() => {
                             uploadStatus.style.display = 'none'; 
-                            alert(`✅ 上傳成功！\n\n作品已成功掛上牆面。`);
+                            alert(`✅ 上傳成功！\n\n作品已永久保存。`);
                         })
                         .catch(err => {
                             uploadStatus.style.display = 'none';
                             console.error(err);
-                            alert("❌ 上傳失敗！\n\n圖片過大，系統自動縮圖後仍然超過限制。\n請嘗試使用較簡單的圖片或截圖。");
+                            alert(`❌ 上傳失敗！\n錯誤代碼：${err.code}\n請檢查網路或 Firebase 設定。`);
                         });
                     }; img.src = ev.target.result;
                 }; r.readAsDataURL(e.target.files[0]);
