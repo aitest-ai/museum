@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="referrer" content="no-referrer"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>智慧策展美術館 - v11 永存版</title>
+    <title>智慧策展美術館 - v12 智慧壓縮版</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Microsoft JhengHei', sans-serif; background-color: #000; user-select: none; -webkit-user-select: none; }
         
@@ -115,12 +115,12 @@
         import { getFirestore, collection, doc, setDoc, deleteDoc, getDoc, getDocs, query, where, onSnapshot, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --------------------------------------------------------
-        // 🔧 Firebase 設定區 (請確認這裡是最新的)
+        // 🔧 Firebase 設定區
         // --------------------------------------------------------
         let firebaseConfig;
         
-        // ★ 使用 v11 作為版本號
-        let appId = 'smart-museum-v11-webp'; 
+        // ★ 使用 v12 作為版本號，這是一個全新的乾淨空間
+        let appId = 'smart-museum-v12-auto-compress'; 
 
         if (typeof __firebase_config !== 'undefined') {
             firebaseConfig = JSON.parse(__firebase_config);
@@ -128,12 +128,12 @@
             // ★ 請確認這裡是你新專案的 Config ★
             firebaseConfig = {
                 apiKey: "AIzaSyDI14orpnwyFuayclLhdRkzdTrts4nGgM4",
-                authDomain: "museum01-7e149.firebaseapp.com",
-                projectId: "museum01-7e149",
-                storageBucket: "museum01-7e149.firebasestorage.app",
-                messagingSenderId: "946144736824",
-                appId: "1:946144736824:web:c1360032325b2f62a5d8cd",
-                measurementId: "G-NSGTGTYHZZ"
+                  authDomain: "museum01-7e149.firebaseapp.com",
+                  projectId: "museum01-7e149",
+                  storageBucket: "museum01-7e149.firebasestorage.app",
+                  messagingSenderId: "946144736824",
+                  appId: "1:946144736824:web:c1360032325b2f62a5d8cd",
+                  measurementId: "G-NSGTGTYHZZ"
             };
         }
 
@@ -397,14 +397,17 @@
                 currentUser=u; 
                 statusEl.innerText=`● ${myName} (線上)`; 
                 statusEl.style.color="#c0a060"; 
-                startNetworkSync(); 
+                
+                // ★ 關鍵：登入後立刻傳送位置，解決「進場看不到人」的問題
+                setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'objects', `p_${u.uid}`), 
+                    { x:0, y:1.7, z:0, ry:0, name:myName, c:'#'+myColor, t:Date.now() }
+                ).then(startNetworkSync);
             } 
         });
 
         function startNetworkSync() {
             let lastX=0, lastZ=0, lastRy=0;
             
-            // 監聽所有變化 (包含一開始的資料)
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'objects'), s => {
                 s.docChanges().forEach(c => {
                     const d = c.doc.data(); 
@@ -416,11 +419,9 @@
                             delete otherPlayers[id];
                         }
                     } else {
-                        // 更新畫作
                         if(id.startsWith('a_')) {
                             updateArt(id.replace('a_',''), d.img);
                         }
-                        // 更新玩家
                         if(id.startsWith('p_') && id !== `p_${currentUser.uid}`) {
                             updatePlayer(id, d);
                         }
@@ -428,7 +429,6 @@
                 });
             });
 
-            // 上傳位置
             setInterval(() => {
                 if(!currentUser) return;
                 const p = camera.position;
@@ -540,211 +540,120 @@
         promptEl.addEventListener('click', ()=>targetFrame && uploadInput.click());
         
         // --------------------------------------------------------
-        // 🔒 上傳邏輯：★ 改用 WebP 格式 + 強制檢查 ★
+        // 🔒 上傳邏輯：★ 智慧壓縮引擎 v12 ★
         // --------------------------------------------------------
+        // 輔助函式：壓縮並回傳 Base64
+        async function compressImage(img, maxWidth, quality) {
+            const c = document.createElement('canvas');
+            const ctx = c.getContext('2d');
+            let w = img.width, h = img.height;
+            if(w > maxWidth || h > maxWidth) {
+                const ratio = Math.min(maxWidth/w, maxWidth/h);
+                w *= ratio; h *= ratio;
+            }
+            c.width = w; c.height = h;
+            ctx.drawImage(img, 0, 0, w, h);
+            // 這裡強制使用 jpeg，相容性最高
+            return c.toDataURL('image/jpeg', quality);
+        }
+
         uploadInput.addEventListener('change', async e => {
             if(!e.target.files[0] || !targetFrame) return;
 
-            const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'objects');
-            const docRef = doc(collectionRef, `a_${targetFrame.userData.id}`);
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'objects', `a_${targetFrame.userData.id}`);
             
             try {
                 // 1. 檢查是否已有圖
                 const snapshot = await getDoc(docRef);
                 if (snapshot.exists() && snapshot.data().img) {
-                    const owner = snapshot.data().ownerName || "神秘畫家";
-                    alert(`⛔ 這裡不能畫喔！\n\n這幅畫是【${owner}】的作品。\n請找找看其他的空白畫框吧！`);
+                    alert(`⛔ 這裡不能畫喔！這幅畫已經有主人了。`);
                     uploadInput.value = "";
                     return;
                 }
 
-                // 2. 檢查限額 3 張
+                // 2. 檢查限額
+                const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'objects');
                 const q = query(collectionRef, where("ownerId", "==", currentUser.uid));
                 const querySnapshot = await getDocs(q);
-                
                 if (querySnapshot.size >= 3) {
-                    alert(`🎨 您已經展出 3 幅作品囉！\n\n請先當一個最棒的觀眾，\n也去看看別的畫家分享的英雄故事，\n給他們一點鼓勵吧！👏`);
+                    alert(`🎨 您已經展出 3 幅作品囉！請去欣賞別人的作品吧！`);
                     uploadInput.value = "";
                     return;
                 }
 
-                // 3. 準備上傳
-                uploadStatus.innerHTML = "☁️ 正在處理並上傳圖片...<br><span style='font-size:12px'>(請稍候...)</span>";
+                // 3. 智慧壓縮上傳
+                uploadStatus.innerHTML = "☁️ 雲端存檔中...<br>正在為您調整圖片大小...";
                 uploadStatus.style.display = 'block';
 
                 const r = new FileReader();
                 r.onload = ev => {
-                    const img = new Image(); img.onload = () => {
-                        const c = document.createElement('canvas'); const ctx=c.getContext('2d');
+                    const img = new Image(); 
+                    img.onload = async () => {
+                        let finalData = null;
                         
-                        // ★ 調整：解析度 800px，確保畫質與大小的平衡 ★
-                        let w=img.width, h=img.height, m=800;
-                        if(w>m||h>m){const s=Math.min(m/w,m/h);w*=s;h*=s;}
-                        c.width=w;c.height=h; ctx.drawImage(img,0,0,w,h);
+                        // --- 智慧壓縮迴圈 ---
+                        // 嘗試 1: 800px, 0.7 品質
+                        finalData = await compressImage(img, 800, 0.7);
                         
-                        // ★ 關鍵：改用 image/webp (畫質更好，檔案更小) ★
-                        const base64Data = c.toDataURL('image/webp', 0.6); 
+                        // 如果太大 (>900KB)，嘗試 2: 降畫質
+                        if(finalData.length > 900000) {
+                            console.warn("圖片過大，進行第二次壓縮...");
+                            finalData = await compressImage(img, 800, 0.5);
+                        }
 
-                        // 檢查檔案大小是否超過 Firebase 極限 (保留 100KB 緩衝)
-                        if(base64Data.length > 900000) {
+                        // 如果還是太大，嘗試 3: 縮尺寸
+                        if(finalData.length > 900000) {
+                            console.warn("圖片仍過大，進行縮圖...");
+                            finalData = await compressImage(img, 512, 0.6);
+                        }
+
+                        // 最後檢查
+                        if(finalData.length > 950000) {
                             uploadStatus.style.display = 'none';
-                            alert("❌ 圖片太大了！\n\n即使壓縮後仍然超過雲端限制。\n請換一張比較簡單的圖片試試看。");
+                            alert("❌ 圖片實在太大了！請換一張簡單一點的圖片。");
                             return;
                         }
 
-                        setDoc(docRef, 
-                            { 
-                                img: base64Data, 
-                                ownerName: myName,
-                                ownerId: currentUser.uid, 
-                                uploadTime: serverTimestamp()
-                            }, 
-                            { merge: true })
+                        // 寫入資料庫
+                        setDoc(docRef, { 
+                            img: finalData, 
+                            ownerName: myName,
+                            ownerId: currentUser.uid, 
+                            uploadTime: serverTimestamp()
+                        }, { merge: true })
                         .then(() => {
                             uploadStatus.style.display = 'none'; 
-                            alert(`✅ 上傳成功！\n\n作品已永久保存。`);
+                            alert(`✅ 上傳成功！`);
                         })
                         .catch(err => {
                             uploadStatus.style.display = 'none';
                             console.error(err);
-                            alert(`❌ 上傳失敗！\n錯誤代碼：${err.code}\n請檢查網路或 Firebase 設定。`);
+                            alert(`❌ 存檔失敗：${err.message}`);
                         });
-                    }; img.src = ev.target.result;
+                    }; 
+                    img.src = ev.target.result;
                 }; r.readAsDataURL(e.target.files[0]);
 
             } catch (err) {
                 uploadStatus.style.display = 'none';
-                console.error("檢查失敗", err);
-                alert("網路連線不穩，請稍後再試");
+                console.error(err);
+                alert("發生錯誤，請重試");
             }
-            
             uploadInput.value="";
         });
 
-        function setupControls() {
-            joystickZone.addEventListener('touchstart', e=>{joystickActive=true; updateJoy(e.touches[0]);}, {passive:false});
-            joystickZone.addEventListener('touchmove', e=>{if(joystickActive) updateJoy(e.touches[0]); e.preventDefault();}, {passive:false});
-            joystickZone.addEventListener('touchend', ()=>{joystickActive=false; joystickKnob.style.transform=`translate(-50%,-50%)`; moveVector.set(0,0,0);});
-            lookZone.addEventListener('touchstart', e=>{lookActive=true; lastLookX=e.touches[0].clientX; lastLookY=e.touches[0].clientY;}, {passive:false});
-            lookZone.addEventListener('touchmove', e=>{
-                if(lookActive) {
-                    const t = e.touches[0]; rotateCam(t.clientX-lastLookX, t.clientY-lastLookY); lastLookX=t.clientX; lastLookY=t.clientY;
-                } e.preventDefault();
-            }, {passive:false});
-            lookZone.addEventListener('touchend', ()=>lookActive=false);
-
-            document.addEventListener('keydown', e=>{switch(e.key.toLowerCase()){case 'w':moveVector.z=-1;break;case 's':moveVector.z=1;break;case 'a':moveVector.x=-1;break;case 'd':moveVector.x=1;break;}});
-            document.addEventListener('keyup', e=>{switch(e.key.toLowerCase()){case 'w':case 's':moveVector.z=0;break;case 'a':case 'd':moveVector.x=0;break;}});
-            document.addEventListener('mousedown', () => isDragging = true);
-            document.addEventListener('mouseup', () => isDragging = false);
-            document.addEventListener('mousemove', e => { if(isDragging && !joystickActive) rotateCam(e.movementX, e.movementY); });
-        }
-        function updateJoy(t) {
-            const r = joystickZone.getBoundingClientRect();
-            const dx = t.clientX-(r.left+r.width/2); const dy = t.clientY-(r.top+r.height/2);
-            const d = Math.sqrt(dx*dx+dy*dy); const f = d>40 ? 40/d : 1;
-            joystickKnob.style.transform = `translate(calc(-50% + ${dx*f}px), calc(-50% + ${dy*f}px))`;
-            moveVector.x=(dx*f)/40; moveVector.z=(dy*f)/40;
-        }
-        function rotateCam(dx, dy) {
-            lookEuler.setFromQuaternion(camera.quaternion);
-            lookEuler.y -= dx*0.0025; lookEuler.x -= dy*0.0025;
-            lookEuler.x = Math.max(-1.4, Math.min(1.4, lookEuler.x));
-            camera.quaternion.setFromEuler(lookEuler);
-        }
-
-        const clock = new THREE.Clock();
-
-        function animate() {
-            requestAnimationFrame(animate);
-            if(!isRunning) return;
-
-            const dt = clock.getDelta();
-            const now = Date.now();
-
-            if(moveVector.lengthSq()>0) {
-                const s = 4.0 * dt; 
-                const f = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion); f.y=0; f.normalize();
-                const r = new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion); r.y=0; r.normalize();
-                const next = camera.position.clone().addScaledVector(f, -moveVector.z*s).addScaledVector(r, moveVector.x*s);
-                
-                const box = new THREE.Box3().setFromCenterAndSize(next, new THREE.Vector3(0.5,1,0.5));
-                let hit=false; for(let c of colliders) if(box.intersectsBox(c)) { hit=true; break; }
-                if(!hit) camera.position.copy(next);
-            }
-
-            Object.keys(otherPlayers).forEach(key => {
-                const p = otherPlayers[key];
-                if(now - p.lastUpdate > 40000) {
-                    scene.remove(p.group);
-                    delete otherPlayers[key];
-                    return;
-                }
-                const dist = p.group.position.distanceTo(p.targetPos);
-                p.group.position.lerp(p.targetPos, 0.1);
-                p.group.rotation.y += (p.targetRot - p.group.rotation.y) * 0.1;
-
-                if(dist > 0.05) {
-                    const time = now * 0.01;
-                    p.legL.rotation.x = Math.sin(time) * 0.5;
-                    p.legR.rotation.x = -Math.sin(time) * 0.5;
-                    p.armL.rotation.x = -Math.sin(time) * 0.5;
-                    p.armR.rotation.x = Math.sin(time) * 0.5;
-                } else {
-                    p.legL.rotation.x = p.legR.rotation.x = 0;
-                    p.armL.rotation.x = p.armR.rotation.x = 0;
-                }
-            });
-
-            raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
-            const hits = raycaster.intersectObjects(artFrames);
-            if(hits.length>0 && hits[0].distance<8) {
-                if(targetFrame!==hits[0].object) {
-                    targetFrame=hits[0].object;
-                    promptEl.style.display='block';
-                }
-            } else { targetFrame=null; promptEl.style.display='none'; }
-
-            renderer.render(scene, camera);
-        }
-
-        function onResize() {
-            camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth,window.innerHeight);
-        }
-
         // --------------------------------------------------------
-        // 🗑️ 管理員功能：一鍵清空美術館 (密碼: admin123)
+        // 🗑️ 管理員功能 (密碼: admin123)
         // --------------------------------------------------------
         window.resetMuseum = async () => {
-            const password = prompt("請輸入管理員密碼以清空美術館：");
-            if(password !== "admin123") {
-                alert("密碼錯誤");
-                return;
-            }
-            
-            if(!confirm("警告：此操作將刪除「所有」學生的畫作！\n確定要清空嗎？")) return;
-
-            const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'objects');
-            const q = query(collectionRef); 
+            if(prompt("密碼：") !== "admin123") return alert("錯誤");
+            if(!confirm("確定清空？")) return;
+            const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'objects')); 
             const snapshot = await getDocs(q);
-            
             const batch = writeBatch(db);
             let count = 0;
-
-            snapshot.forEach(doc => {
-                if(doc.id.startsWith('a_')) { 
-                    batch.delete(doc.ref);
-                    count++;
-                }
-            });
-
-            if(count > 0) {
-                await batch.commit();
-                alert(`成功清除 ${count} 幅作品！美術館已重置。`);
-                location.reload(); 
-            } else {
-                alert("目前是空的，不需要清除。");
-            }
+            snapshot.forEach(doc => { if(doc.id.startsWith('a_')) { batch.delete(doc.ref); count++; }});
+            if(count > 0) { await batch.commit(); alert("已清空！"); location.reload(); }
         };
     </script>
 </body>
