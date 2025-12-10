@@ -214,7 +214,7 @@
             }
         }
 
-        // 隨機出生點 (新增中島區)
+        // 隨機出生點
         function getSafeSpawnPoint() {
             const spawns = [
                 { x: 0, z: 0, r: 0 },       // 中央
@@ -321,19 +321,15 @@
             addArt('Center_S', 0, 3.5, 5 + FRAME_OFF, 0, 3.5, 2.5);
             addArt('Center_N', 0, 3.5, 5 - FRAME_OFF, Math.PI, 3.5, 2.5);
 
-            // ===============================================
-            // ★★★ 修正後：東側寬畫廊 (牆面切開以露出側廳) ★★★
-            // ===============================================
-            // 北側牆面 (原本是連續的，現在分為左右兩段)
-            addWall(21, -15, 10, 8, 0); // X: 16~26
-            addWall(43, -15, 18, 8, 0); // X: 34~52
+            // 2. 東側寬畫廊 (已修正為有開口的牆面)
+            // 北側牆面 (左/右段)
+            addWall(21, -15, 10, 8, 0); 
+            addWall(43, -15, 18, 8, 0); 
+            // 南側牆面 (左/右段)
+            addWall(21, 15, 10, 8, 0);  
+            addWall(43, 15, 18, 8, 0);  
 
-            // 南側牆面
-            addWall(21, 15, 10, 8, 0);  // X: 16~26
-            addWall(43, 15, 18, 8, 0);  // X: 34~52
-            // ===============================================
-
-            // ★ 加密的外牆畫作 (4張/面)
+            // ★ 加密的外牆畫作
             addArt('Wide_N_1', 29, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
             addArt('Wide_N_2', 35, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
             addArt('Wide_N_3', 41, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
@@ -344,15 +340,13 @@
             addArt('Wide_S_3', 41, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5);
             addArt('Wide_S_4', 47, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5);
 
-            // ★★★ 新增：中島展牆 (Center Partitions) ★★★
-            // 中島牆 1 (X=32, Z=0)
+            // ★★★ 中島展牆 ★★★
             addWall(32, 0, 10, 6, 0); 
-            addArt('Mid_1_N_L', 30, 4, -0 - FRAME_OFF, Math.PI, 3, 3); // 朝北左
-            addArt('Mid_1_N_R', 34, 4, -0 - FRAME_OFF, Math.PI, 3, 3); // 朝北右
-            addArt('Mid_1_S_L', 30, 4, 0 + FRAME_OFF, 0, 3, 3);        // 朝南左
-            addArt('Mid_1_S_R', 34, 4, 0 + FRAME_OFF, 0, 3, 3);        // 朝南右
+            addArt('Mid_1_N_L', 30, 4, -0 - FRAME_OFF, Math.PI, 3, 3);
+            addArt('Mid_1_N_R', 34, 4, -0 - FRAME_OFF, Math.PI, 3, 3);
+            addArt('Mid_1_S_L', 30, 4, 0 + FRAME_OFF, 0, 3, 3);      
+            addArt('Mid_1_S_R', 34, 4, 0 + FRAME_OFF, 0, 3, 3);      
 
-            // 中島牆 2 (X=44, Z=0)
             addWall(44, 0, 10, 6, 0);
             addArt('Mid_2_N_L', 42, 4, -0 - FRAME_OFF, Math.PI, 3, 3); 
             addArt('Mid_2_N_R', 46, 4, -0 - FRAME_OFF, Math.PI, 3, 3); 
@@ -398,8 +392,10 @@
             
             addWall(mx, -5, 15, 8, 0); addWall(mx, 5, 15, 8, 0);
             addArt('Maze_Div_1', mx, 4, -5 - FRAME_OFF, Math.PI, 3.5, 3.5);
-            addArt('Maze_Div_2', mx, 4, -5 + FRAME_OFF + 0.1, 0, 3.5, 3.5); 
-            addArt('Maze_Div_3', mx, 4, 5 - FRAME_OFF - 0.1, Math.PI, 3.5, 3.5);
+            // ★★★ 修正處：移除了原本多餘的 + 0.1 ★★★
+            addArt('Maze_Div_2', mx, 4, -5 + FRAME_OFF, 0, 3.5, 3.5); 
+            // ★★★ 修正處：移除了原本多餘的 - 0.1 ★★★
+            addArt('Maze_Div_3', mx, 4, 5 - FRAME_OFF, Math.PI, 3.5, 3.5);
             addArt('Maze_Div_4', mx, 4, 5 + FRAME_OFF, 0, 3.5, 3.5);
 
             // 6. 北翼
