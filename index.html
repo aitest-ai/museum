@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>智慧策展美術館 - v19 診斷版</title>
+    <title>智慧策展美術館 - Cloudinary 圖床版</title>
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Microsoft JhengHei', sans-serif; background-color: #000; user-select: none; }
+        /* CSS 樣式：保持原樣 */
+        body { margin: 0; overflow: hidden; font-family: 'Microsoft JhengHei', sans-serif; background-color: #000; user-select: none; -webkit-user-select: none; }
         
         #start-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -13,45 +14,72 @@
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             z-index: 2000; transition: opacity 0.8s ease-out;
         }
-        h1 { letter-spacing: 8px; margin: 0; color: #c0a060; text-transform: uppercase; }
+        h1 { font-weight: 300; letter-spacing: 8px; margin: 0; color: #c0a060; text-transform: uppercase; }
+        .subtitle { letter-spacing: 3px; color: #888; font-size: 14px; margin-top: 15px; margin-bottom: 30px; }
         
         #name-input {
             background: transparent; border: none; border-bottom: 2px solid #555;
-            color: #fff; font-size: 20px; text-align: center; padding: 10px; width: 250px; outline: none; margin-bottom: 20px;
+            color: #fff; font-size: 20px; text-align: center; padding: 10px;
+            width: 250px; outline: none; margin-bottom: 20px; letter-spacing: 1px;
+            transition: border-color 0.3s;
         }
+        #name-input:focus { border-bottom-color: #c0a060; }
+        #name-input::placeholder { color: #444; }
+
         #start-btn {
             background: transparent; color: #c0a060; border: 1px solid #c0a060; padding: 12px 50px;
-            font-size: 15px; font-weight: bold; cursor: pointer; border-radius: 2px;
+            font-size: 15px; font-weight: bold; cursor: pointer;
+            border-radius: 2px; transition: all 0.3s; letter-spacing: 2px;
+            opacity: 0.5; pointer-events: none;
         }
-        #start-btn:hover { background: #c0a060; color: #000; }
-        #loading-text { color: #666; font-size: 12px; margin-top: 15px; }
+        #start-btn.active { opacity: 1; pointer-events: auto; background: rgba(192, 160, 96, 0.1); }
+        #start-btn.active:hover { background: #c0a060; color: #000; }
+
+        #loading-text { color: #666; font-size: 12px; margin-top: 15px; letter-spacing: 1px; min-height: 15px; }
 
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        
         #crosshair {
             position: absolute; top: 50%; left: 50%; width: 4px; height: 4px;
             background: rgba(255,255,255,0.9); border-radius: 50%;
-            transform: translate(-50%, -50%); display: none;
+            box-shadow: 0 0 4px rgba(0,0,0,0.5);
+            transform: translate(-50%, -50%); pointer-events: none; display: none;
         }
+
         #interaction-prompt {
             position: absolute; bottom: 20%; left: 50%; transform: translateX(-50%);
             background: rgba(20, 20, 20, 0.9); color: #c0a060; padding: 10px 25px;
             font-size: 14px; border-radius: 30px; border: 1px solid #444;
             display: none; pointer-events: auto; cursor: pointer;
+            backdrop-filter: blur(4px);
         }
-        
-        /* 診斷訊息視窗 */
-        #debug-status {
-            position: absolute; top: 10px; right: 10px; 
-            background: rgba(0,0,0,0.8); color: lime; 
-            font-family: monospace; font-size: 12px; padding: 15px; 
-            pointer-events: none; max-width: 300px; border: 1px solid lime;
-            white-space: pre-wrap; z-index: 9999;
+
+        #upload-status {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9); color: #fff; padding: 20px 40px;
+            border-radius: 10px; border: 2px solid #c0a060;
+            font-size: 18px; display: none; z-index: 5000;
+            text-align: center; box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            white-space: pre-line;
         }
 
         #status { position: absolute; top: 20px; left: 20px; color: rgba(255,255,255,0.4); font-size: 12px; display: none; }
-        #joystick-zone { position: absolute; bottom: 40px; left: 30px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; display: none; pointer-events: auto; }
-        #joystick-knob { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: rgba(255,255,255,0.2); border-radius: 50%; transform: translate(-50%, -50%); }
-        #look-zone { position: absolute; top: 0; right: 0; width: 50%; height: 100%; display: none; pointer-events: auto; }
+
+        #joystick-zone {
+            position: absolute; bottom: 40px; left: 30px; width: 120px; height: 120px;
+            background: rgba(255,255,255,0.08); border-radius: 50%; border: 1px solid rgba(255,255,255,0.1);
+            pointer-events: auto; touch-action: none; display: none;
+        }
+        #joystick-knob {
+            position: absolute; top: 50%; left: 50%; width: 50px; height: 50px;
+            background: rgba(255,255,255,0.2); border-radius: 50%;
+            transform: translate(-50%, -50%); pointer-events: none;
+        }
+        #look-zone {
+            position: absolute; top: 0; right: 0; width: 50%; height: 100%;
+            pointer-events: auto; touch-action: none; display: none;
+        }
+
         #upload-input { display: none; }
     </style>
 </head>
@@ -59,17 +87,17 @@
 
     <div id="start-screen">
         <h1>THE GALLERY</h1>
-        <p class="subtitle">v19 診斷修復版</p>
+        <p class="subtitle">英雄故事策展計畫</p>
         <input type="text" id="name-input" placeholder="請輸入您的名稱" maxlength="10" autocomplete="off">
         <button id="start-btn">進入展場</button>
         <div id="loading-text"></div>
     </div>
 
     <div id="ui-layer">
-        <div id="debug-status">系統準備就緒...</div>
         <div id="status">● 連線中...</div>
         <div id="crosshair"></div>
         <div id="interaction-prompt">點擊上傳作品</div>
+        <div id="upload-status"></div>
     </div>
 
     <div id="joystick-zone"><div id="joystick-knob"></div></div>
@@ -84,7 +112,7 @@
         import { getFirestore, collection, doc, setDoc, deleteDoc, getDoc, getDocs, query, where, onSnapshot, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // ========================================================
-        // 1. Firebase 設定
+        // 🔧 1. Firebase 設定 (請填入你的)
         // ========================================================
         const firebaseConfig = {
               apiKey: "AIzaSyDI14orpnwyFuayclLhdRkzdTrts4nGgM4",
@@ -97,31 +125,27 @@
         };
 
         // ========================================================
-        // 2. Cloudinary 設定
+        // ☁️ 2. Cloudinary 設定 (請填入你的)
         // ========================================================
+        // Cloud Name: 登入後 Dashboard 左上角可以看到
         const CLOUDINARY_CLOUD_NAME = "dllwu8dwu"; 
+        
+        // Upload Preset: Settings -> Upload -> Add upload preset (Mode 要選 Unsigned)
         const CLOUDINARY_UPLOAD_PRESET = "museum_upload"; 
 
         // --------------------------------------------------------
         
-        let appId = 'smart-museum-v19-diag'; // 使用診斷空間
+        // 使用 v18 確保是乾淨的空間
+        let appId = 'smart-museum-v18-cloudinary'; 
         let app, auth, db;
-
-        // 診斷日誌
-        const debugLog = (msg) => {
-            console.log(msg);
-            const el = document.getElementById('debug-status');
-            if(el) el.innerText = `> ${msg}\n` + el.innerText;
-        };
 
         try {
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
             db = getFirestore(app);
-            debugLog("✅ Firebase SDK 初始化成功");
         } catch (e) {
-            debugLog("❌ Firebase 初始化失敗: " + e.message);
-            alert("Firebase 設定有誤！");
+            console.error("Firebase 初始化失敗:", e);
+            alert("Firebase 設定有誤，請按 F12 檢查 Config。");
         }
 
         let currentUser = null;
@@ -137,21 +161,24 @@
         const statusEl = document.getElementById('status');
         const promptEl = document.getElementById('interaction-prompt');
         const uploadInput = document.getElementById('upload-input');
+        const uploadStatus = document.getElementById('upload-status');
         const joystickZone = document.getElementById('joystick-zone');
         const joystickKnob = document.getElementById('joystick-knob');
         const crosshair = document.getElementById('crosshair');
         const lookZone = document.getElementById('look-zone');
 
         nameInput.addEventListener('input', () => {
-            if(nameInput.value.trim().length > 0) startBtn.style.opacity = 1; startBtn.style.pointerEvents = 'auto';
+            if(nameInput.value.trim().length > 0) startBtn.classList.add('active');
+            else startBtn.classList.remove('active');
         });
 
         startBtn.addEventListener('click', async () => {
             if (!nameInput.value.trim()) return;
             myName = nameInput.value.trim();
+            
             startBtn.style.display = 'none';
             nameInput.style.display = 'none';
-            loadingText.innerText = "連線中...";
+            loadingText.innerText = "正在連線到美術館...";
 
             if(!isRunning) {
                 window.addEventListener('resize', onResize);
@@ -193,6 +220,31 @@
             }
         }
 
+        function createLuxuryWoodTex() {
+            const s=512;const c=document.createElement('canvas');c.width=s;c.height=s;const ctx=c.getContext('2d');
+            ctx.fillStyle='#8d6e63';ctx.fillRect(0,0,s,s);
+            const w=64,h=256;
+            for(let y=0;y<s;y+=h/2){for(let x=0;x<s;x+=w){
+                const sh=Math.random()*20-10;
+                ctx.fillStyle=new THREE.Color('#8d6e63').offsetHSL(0,0,sh/255).getStyle();
+                ctx.fillRect(x,y,w,h/2);
+                ctx.globalAlpha=0.1;ctx.strokeStyle='#3e2723';ctx.strokeRect(x,y,w,h/2);ctx.globalAlpha=1;
+            }}
+            const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(5,5);return t;
+        }
+        function createWallTex() {
+            const s=512;const c=document.createElement('canvas');c.width=s;c.height=s;const ctx=c.getContext('2d');
+            ctx.fillStyle='#b0b0b0';ctx.fillRect(0,0,s,s);
+            ctx.globalAlpha=0.06;ctx.fillStyle='#000';for(let i=0;i<25000;i++)ctx.fillRect(Math.random()*s,Math.random()*s,2,2);
+            const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(4,2);return t;
+        }
+        function createRugTex(p,b){
+            const s=512;const c=document.createElement('canvas');c.width=s;c.height=s;const ctx=c.getContext('2d');
+            ctx.fillStyle=b;ctx.fillRect(0,0,s,s);ctx.fillStyle=p;ctx.fillRect(30,30,s-60,s-60);
+            ctx.globalAlpha=0.05;ctx.fillStyle='#fff';for(let i=0;i<60000;i++)ctx.fillRect(Math.random()*s,Math.random()*s,1,1);
+            return new THREE.CanvasTexture(c);
+        }
+
         function init3D() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x181818); 
@@ -202,8 +254,9 @@
             camera.rotation.order = 'YXZ';
             camera.position.set(0, 1.7, 0); 
 
-            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
             renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
             renderer.shadowMap.enabled = true;
             renderer.outputEncoding = THREE.sRGBEncoding;
             document.body.appendChild(renderer.domElement);
@@ -214,7 +267,7 @@
             sun.position.set(20, 50, 20); 
             scene.add(sun);
 
-            buildOriginalScene(); 
+            buildOriginalScene();
 
             raycaster = new THREE.Raycaster();
             setupControls();
@@ -230,44 +283,115 @@
         }
 
         function buildOriginalScene() {
-            const matWall = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.9 });
-            const floor = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), new THREE.MeshStandardMaterial({ color: 0x5d4037 }));
-            floor.rotation.x = -Math.PI/2; scene.add(floor);
+            const matWood = new THREE.MeshStandardMaterial({ map: createLuxuryWoodTex(), roughness: 0.4, metalness: 0.1 });
+            const matWall = new THREE.MeshStandardMaterial({ map: createWallTex(), roughness: 0.9 });
+            const matCeil = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 1.0 });
+            const matRugMain = new THREE.MeshStandardMaterial({ map: createRugTex('#3e2723', '#c0a060'), roughness: 0.95 });
+            const matRugRotunda = new THREE.MeshStandardMaterial({ map: createRugTex('#4e342e', '#8d6e63'), roughness: 0.95 });
+
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), matWood);
+            floor.rotation.x = -Math.PI/2; floor.receiveShadow = true; scene.add(floor);
+            const ceil = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), matCeil);
+            ceil.rotation.x = Math.PI/2; ceil.position.y = 8; scene.add(ceil);
+
+            const addRug = (x, z, w, h, mat) => {
+                const rug = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+                rug.rotation.x = -Math.PI/2; rug.position.set(x, 0.02, z); rug.receiveShadow = true; scene.add(rug);
+            };
+            addRug(0, 0, 12, 16, matRugMain);
+            addRug(28, 0, 10, 10, matRugRotunda);
 
             const addWall = (x, z, w, h, r) => {
-                const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, WALL_T), matWall);
+                const geo = new THREE.BoxGeometry(w, h, WALL_T);
+                const mesh = new THREE.Mesh(geo, matWall);
                 mesh.position.set(x, h/2, z); mesh.rotation.y = r;
                 scene.add(mesh);
                 colliders.push(new THREE.Box3().setFromObject(mesh));
             };
 
-            addWall(0, -12, 20, 8, 0); addWall(0, 12, 20, 8, 0);
-            addWall(-10, 0, 24, 8, Math.PI/2); addWall(10, 8, 8, 8, Math.PI/2); addWall(10, -8, 8, 8, Math.PI/2);
-            
-            const addArt = (id, x, y, z, ry) => {
-                const frame = new THREE.Mesh(new THREE.BoxGeometry(3.4, 3.4, 0.15), new THREE.MeshStandardMaterial({color:0x111111}));
-                frame.position.set(x, y, z); frame.rotation.y = ry; scene.add(frame);
-                const canvas = new THREE.Mesh(new THREE.PlaneGeometry(3, 3), new THREE.MeshBasicMaterial({color:0xffffff}));
-                canvas.position.set(x + Math.sin(ry)*0.1, y, z + Math.cos(ry)*0.1);
-                canvas.rotation.y = ry; canvas.userData = { id: id, isCanvas: true };
-                scene.add(canvas); artFrames.push(canvas);
-            };
+            addWall(0, -12, 20, 8, 0); 
+            addWall(0, 12, 20, 8, 0);  
+            addWall(-10, 0, 24, 8, Math.PI/2); 
+            addWall(10, -8, 8, 8, Math.PI/2);
+            addWall(10, 8, 8, 8, Math.PI/2); 
 
-            addArt('Hall_S_L', -5, 4, -12 + FRAME_OFF, 0); 
-            addArt('Hall_S_R', 5, 4, -12 + FRAME_OFF, 0);
-            addArt('Hall_N_L', -5, 4, 12 - FRAME_OFF, Math.PI);
-            addArt('Hall_N_R', 5, 4, 12 - FRAME_OFF, Math.PI);
-            addArt('Hall_W', -10 + FRAME_OFF, 4, 0, Math.PI/2);
-            addArt('Hall_E', 10 - FRAME_OFF, 4, 0, -Math.PI/2);
+            addWall(16, 4, 12, 8, 0);
+            addWall(16, -4, 12, 8, 0);
+            
+            const cx=28, cz=0, rad=9, seg=12;
+            for(let i=0; i<seg; i++) {
+                const a = (i/seg)*Math.PI*2;
+                if(a > Math.PI*0.8 && a < Math.PI*1.2) continue;
+                const w = (Math.PI*2*rad)/seg + 0.6;
+                const wx = cx + Math.cos(a)*rad;
+                const wz = cz + Math.sin(a)*rad;
+                addWall(wx, wz, w, 8, -a+Math.PI/2);
+                addArt(`Rot_${i}`, cx+Math.cos(a)*(rad-0.8), 4, cz+Math.sin(a)*(rad-0.8), -a+Math.PI*1.5, 3.0, 4.2);
+            }
+
+            addWall(-35, 0, 40, 8, Math.PI/2);
+            addWall(-22.5, -20, 25, 8, 0);
+            addWall(-22.5, 20, 25, 8, 0);
+            addWall(-22.5, -5, 15, 8, 0);
+            addWall(-22.5, 5, 15, 8, 0);
+
+            // Frames
+            addArt('Hall_S_L', -5, 4, -12 + FRAME_OFF, 0, 4.5, 3.0); 
+            addArt('Hall_S_R', 5, 4, -12 + FRAME_OFF, 0, 4.5, 3.0);
+            addArt('Hall_N_L', -5, 4, 12 - FRAME_OFF, Math.PI, 4.5, 3.0);
+            addArt('Hall_N_R', 5, 4, 12 - FRAME_OFF, Math.PI, 4.5, 3.0);
+
+            addArt('Hall_W_1', -10 + FRAME_OFF, 4, -6, Math.PI/2, 3.0, 4.5);
+            addArt('Hall_W_2', -10 + FRAME_OFF, 4, 6, Math.PI/2, 3.0, 4.5);
+            
+            addArt('Hall_E_S', 10 - FRAME_OFF, 4, -8, -Math.PI/2, 3.5, 3.5);
+            addArt('Hall_E_N', 10 - FRAME_OFF, 4, 8, -Math.PI/2, 3.5, 3.5);
+
+            addWall(0, 5, 8, 5, 0);
+            addArt('Center_S', 0, 3.5, 5 + FRAME_OFF, 0, 3.5, 2.5);
+            addArt('Center_N', 0, 3.5, 5 - FRAME_OFF, Math.PI, 3.5, 2.5);
+
+            addArt('Corr_N', 16, 4, 4 - FRAME_OFF, Math.PI, 2.5, 2.5);
+            addArt('Corr_S', 16, 4, -4 + FRAME_OFF, 0, 2.5, 2.5);
+
+            addArt('Maze_Far_W', -35 + FRAME_OFF, 4, 0, Math.PI/2, 6.0, 3.5);
+            addArt('Maze_Div_S_N', -22.5, 4, -5 - FRAME_OFF, Math.PI, 3.0, 4.0);
+            addArt('Maze_Div_S_S', -22.5, 4, -5 + FRAME_OFF, 0, 3.5, 3.5);
+            addArt('Maze_Div_N_N', -22.5, 4, 5 - FRAME_OFF, Math.PI, 3.5, 3.5);
+            addArt('Maze_Div_N_S', -22.5, 4, 5 + FRAME_OFF, 0, 3.0, 4.0);
+        }
+
+        function addArt(id, x, y, z, ry, w=3.4, h=3.4) {
+            const fGeo = new THREE.BoxGeometry(w, h, 0.15);
+            const fMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.6, metalness: 0.2 });
+            const frame = new THREE.Mesh(fGeo, fMat);
+            frame.position.set(x, y, z); frame.rotation.y = ry;
+            scene.add(frame);
+
+            const cGeo = new THREE.PlaneGeometry(w-0.4, h-0.4);
+            const cMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const canvas = new THREE.Mesh(cGeo, cMat);
+            const offset = 0.1; 
+            canvas.position.set(x + Math.sin(ry)*offset, y, z + Math.cos(ry)*offset);
+            canvas.rotation.y = ry;
+            canvas.userData = { id: id, isCanvas: true };
+            scene.add(canvas);
+            artFrames.push(canvas);
+
+            const spot = new THREE.SpotLight(0xfff0e0, 1.2);
+            spot.position.set(x + Math.sin(ry)*6, 9, z + Math.cos(ry)*6);
+            spot.target = canvas;
+            spot.angle = 0.5; spot.penumbra = 0.5; spot.distance = 25;
+            scene.add(spot); scene.add(spot.target);
         }
 
         async function initAuth() {
             try {
                 await signInAnonymously(auth);
-                debugLog("✅ 登入成功");
             } catch(e){
-                debugLog("❌ 登入失敗: " + e.message);
-                alert("連線失敗！");
+                console.error("Auth Error:", e);
+                statusEl.innerText = "● 連線失敗"; statusEl.style.color = "red";
+                alert("連線失敗！請檢查網域設定或 Firebase 規則。");
             }
         }
 
@@ -276,6 +400,8 @@
                 currentUser=u; 
                 statusEl.innerText=`● ${myName} (線上)`; 
                 statusEl.style.color="#c0a060"; 
+                
+                // 登入後立刻傳送位置
                 setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'objects', `p_${u.uid}`), 
                     { x:0, y:1.7, z:0, ry:0, name:myName, c:'#'+myColor, t:Date.now() }
                 ).then(startNetworkSync);
@@ -285,49 +411,138 @@
         function startNetworkSync() {
             let lastX=0, lastZ=0, lastRy=0;
             
+            // 監聽畫作更新
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'objects'), s => {
                 s.docChanges().forEach(c => {
-                    const d = c.doc.data(); const id = c.doc.id;
+                    const d = c.doc.data(); 
+                    const id = c.doc.id;
+
                     if(c.type === 'removed') {
                         if(id.startsWith('p_') && otherPlayers[id]) {
-                            scene.remove(otherPlayers[id].group); delete otherPlayers[id];
+                            scene.remove(otherPlayers[id].group);
+                            delete otherPlayers[id];
                         }
                     } else {
-                        if(id.startsWith('a_')) updateArt(id.replace('a_',''), d.img); 
-                        if(id.startsWith('p_') && id !== `p_${currentUser.uid}`) updatePlayer(id, d);
+                        // ★ 收到畫作更新，讀取 URL
+                        if(id.startsWith('a_')) {
+                            updateArt(id.replace('a_',''), d.img);
+                        }
+                        if(id.startsWith('p_') && id !== `p_${currentUser.uid}`) {
+                            updatePlayer(id, d);
+                        }
                     }
                 });
-            }, err => debugLog("❌ 讀取資料失敗: " + err.message));
+            });
 
+            // 位置同步
             setInterval(() => {
                 if(!currentUser) return;
-                const p = camera.position; const ry = camera.rotation.y;
-                if (Math.abs(p.x - lastX) > 0.1 || Math.abs(p.z - lastZ) > 0.1) {
+                const p = camera.position;
+                const ry = camera.rotation.y;
+
+                if (Math.abs(p.x - lastX) > 0.1 || Math.abs(p.z - lastZ) > 0.1 || Math.abs(ry - lastRy) > 0.1) {
                     setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'objects', `p_${currentUser.uid}`), 
-                        { x: parseFloat(p.x.toFixed(2)), z: parseFloat(p.z.toFixed(2)), ry: parseFloat(ry.toFixed(2)), name: myName, c:'#'+myColor, t: Date.now() }
-                    ).catch(()=>{});
+                        {
+                            x: parseFloat(p.x.toFixed(2)), 
+                            y: parseFloat(p.y.toFixed(2)), 
+                            z: parseFloat(p.z.toFixed(2)), 
+                            ry: parseFloat(ry.toFixed(2)), 
+                            name: myName, 
+                            c: '#' + myColor,
+                            t: Date.now() 
+                        }
+                    ).catch(e => console.warn("位置同步失敗", e));
                     lastX = p.x; lastZ = p.z; lastRy = ry;
                 }
             }, 500);
         }
 
+        function createMinecraftChar(colorHex) {
+            const group = new THREE.Group();
+            const color = new THREE.Color(colorHex);
+            const matBody = new THREE.MeshStandardMaterial({ color: color });
+            const matSkin = new THREE.MeshStandardMaterial({ color: 0xffccaa });
+            const matDark = new THREE.MeshStandardMaterial({ color: 0x333333 });
+
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), matSkin);
+            head.position.y = 1.6; group.add(head);
+
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.6, 0.2), matBody);
+            body.position.y = 1.1; group.add(body);
+
+            const armL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.6, 0.12), matSkin);
+            armL.position.y = -0.2; 
+            const armLGroup = new THREE.Group(); armLGroup.add(armL);
+            armLGroup.position.set(-0.28, 1.35, 0); group.add(armLGroup);
+
+            const armR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.6, 0.12), matSkin);
+            armR.position.y = -0.2;
+            const armRGroup = new THREE.Group(); armRGroup.add(armR);
+            armRGroup.position.set(0.28, 1.35, 0); group.add(armRGroup);
+
+            const legL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.7, 0.15), matDark);
+            legL.position.y = -0.35;
+            const legLGroup = new THREE.Group(); legLGroup.add(legL);
+            legLGroup.position.set(-0.1, 0.7, 0); group.add(legLGroup);
+
+            const legR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.7, 0.15), matDark);
+            legR.position.y = -0.35;
+            const legRGroup = new THREE.Group(); legRGroup.add(legR);
+            legRGroup.position.set(0.1, 0.7, 0); group.add(legRGroup);
+
+            group.traverse(o => { if(o.isMesh) { o.castShadow = true; o.receiveShadow = true; }});
+            return { group, armL: armLGroup, armR: armRGroup, legL: legLGroup, legR: legRGroup, head };
+        }
+
+        function createNameLabel(name) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 256; canvas.height = 64;
+            ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; ctx.roundRect(10, 10, 236, 44, 20); ctx.fill();
+            ctx.fillStyle = "white"; ctx.font = "bold 32px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillText(name, 128, 32);
+
+            const tex = new THREE.CanvasTexture(canvas);
+            const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+            const sprite = new THREE.Sprite(mat);
+            sprite.scale.set(1.5, 0.375, 1);
+            sprite.position.y = 2.1;
+            return sprite;
+        }
+
         function updatePlayer(id, d) {
             if(!otherPlayers[id]) {
-                const group = new THREE.Group();
-                const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.5, 0.5), new THREE.MeshStandardMaterial({color:d.c}));
-                body.position.y=0.75; group.add(body);
-                scene.add(group);
-                otherPlayers[id] = { group, targetPos: new THREE.Vector3(d.x, 0, d.z), targetRot: d.ry, lastUpdate: Date.now() };
+                const char = createMinecraftChar(d.c || '#ffffff');
+                const label = createNameLabel(d.name || 'Unknown');
+                char.group.add(label);
+                scene.add(char.group);
+                otherPlayers[id] = { 
+                    ...char, 
+                    targetPos: new THREE.Vector3(d.x, 0, d.z),
+                    targetRot: d.ry,
+                    lastUpdate: Date.now()
+                };
             }
             const p = otherPlayers[id];
-            p.targetPos.set(d.x, 0, d.z); p.targetRot = d.ry; p.lastUpdate = Date.now(); 
+            
+            if (!p || !p.group) return;
+
+            p.targetPos.set(d.x, 0, d.z);
+            p.targetRot = d.ry;
+            p.lastUpdate = Date.now(); 
         }
         
         function updateArt(fid, src) {
             const f = artFrames.find(x => x.userData.id===fid);
             if(f && src) {
-                new THREE.TextureLoader().setCrossOrigin('anonymous').load(src, t=>{ 
-                    t.encoding=THREE.sRGBEncoding; f.material.map=t; f.material.needsUpdate=true; 
+                // ★ 這裡開啟跨域存取，Cloudinary 支援
+                const loader = new THREE.TextureLoader();
+                loader.setCrossOrigin('anonymous');
+                loader.load(src, t=>{ 
+                    t.encoding=THREE.sRGBEncoding; 
+                    f.material.map=t; 
+                    f.material.color.setHex(0xffffff);
+                    f.material.needsUpdate=true; 
                 });
             }
         }
@@ -335,40 +550,54 @@
         promptEl.addEventListener('click', ()=>targetFrame && uploadInput.click());
         
         // --------------------------------------------------------
-        // ★ 診斷版上傳邏輯 ★
+        // ★ Cloudinary 上傳邏輯 (無需後端)
         // --------------------------------------------------------
         uploadInput.addEventListener('change', async e => {
             if(!e.target.files[0] || !targetFrame) return;
 
-            // 1. Cloudinary 診斷
-            debugLog("1. 開始上傳到 Cloudinary...");
-            const file = e.target.files[0];
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET); 
-
+            // 1. 檢查權限 (Firestore)
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'objects', `a_${targetFrame.userData.id}`);
+            
             try {
-                const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
-                    method: 'POST', body: formData
-                });
-
-                if(!res.ok) {
-                    const errDetail = await res.json();
-                    debugLog(`❌ Cloudinary 上傳失敗: ${res.status}`);
-                    debugLog(`原因: ${errDetail.error.message}`);
-                    alert(`圖片上傳失敗！\n錯誤: ${errDetail.error.message}\n請檢查 Upload Preset 是否設為 Unsigned`);
-                    uploadInput.value="";
+                const snapshot = await getDoc(docRef);
+                if (snapshot.exists() && snapshot.data().img) {
+                    alert(`⛔ 這裡不能畫喔！這幅畫已經有主人了。`);
+                    uploadInput.value = "";
                     return;
                 }
 
-                const data = await res.json();
-                debugLog(`✅ Cloudinary 成功! 網址: ${data.secure_url.substring(0,30)}...`);
-                const imageUrl = data.secure_url;
+                // 2. 檢查限額
+                const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'objects');
+                const q = query(collectionRef, where("ownerId", "==", currentUser.uid));
+                const querySnapshot = await getDocs(q);
+                if (querySnapshot.size >= 3) {
+                    alert(`🎨 您已經展出 3 幅作品囉！請去欣賞別人的作品吧！`);
+                    uploadInput.value = "";
+                    return;
+                }
 
-                // 2. Firestore 診斷
-                debugLog("2. 正在寫入 Firestore...");
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'objects', `a_${targetFrame.userData.id}`);
-                
+                // 3. 開始上傳至 Cloudinary
+                uploadStatus.innerHTML = "☁️ 正在上傳至雲端圖床...<br><span style='font-size:12px'>(請稍候...)</span>";
+                uploadStatus.style.display = 'block';
+
+                const file = e.target.files[0];
+                const formData = new FormData();
+                formData.append('file', file);
+                // 這裡填入 Cloudinary 的 upload_preset
+                formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET); 
+
+                // 發送 POST 請求
+                const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if(!res.ok) throw new Error("Cloudinary 上傳失敗");
+
+                const data = await res.json();
+                const imageUrl = data.secure_url; // 取得圖片網址
+
+                // 4. 將網址存入 Firestore
                 await setDoc(docRef, { 
                     img: imageUrl, 
                     ownerName: myName,
@@ -376,15 +605,13 @@
                     uploadTime: serverTimestamp()
                 }, { merge: true });
 
-                debugLog("✅ Firestore 寫入成功！");
-                alert("🎉 成功！圖片已保存。");
+                uploadStatus.style.display = 'none'; 
+                alert(`✅ 上傳成功！\n作品已永久保存 (Cloudinary)。`);
 
             } catch (err) {
-                debugLog(`❌ 系統錯誤: ${err.message}`);
+                uploadStatus.style.display = 'none';
                 console.error(err);
-                if (err.code === 'permission-denied') {
-                    alert("❌ Firestore 權限不足！請去檢查 Rules。");
-                }
+                alert("❌ 上傳失敗，請檢查 Cloudinary 設定！");
             }
             
             uploadInput.value="";
@@ -395,8 +622,13 @@
             joystickZone.addEventListener('touchmove', e=>{if(joystickActive) updateJoy(e.touches[0]); e.preventDefault();}, {passive:false});
             joystickZone.addEventListener('touchend', ()=>{joystickActive=false; joystickKnob.style.transform=`translate(-50%,-50%)`; moveVector.set(0,0,0);});
             lookZone.addEventListener('touchstart', e=>{lookActive=true; lastLookX=e.touches[0].clientX; lastLookY=e.touches[0].clientY;}, {passive:false});
-            lookZone.addEventListener('touchmove', e=>{ if(lookActive) { const t = e.touches[0]; rotateCam(t.clientX-lastLookX, t.clientY-lastLookY); lastLookX=t.clientX; lastLookY=t.clientY; } e.preventDefault(); }, {passive:false});
+            lookZone.addEventListener('touchmove', e=>{
+                if(lookActive) {
+                    const t = e.touches[0]; rotateCam(t.clientX-lastLookX, t.clientY-lastLookY); lastLookX=t.clientX; lastLookY=t.clientY;
+                } e.preventDefault();
+            }, {passive:false});
             lookZone.addEventListener('touchend', ()=>lookActive=false);
+
             document.addEventListener('keydown', e=>{switch(e.key.toLowerCase()){case 'w':moveVector.z=-1;break;case 's':moveVector.z=1;break;case 'a':moveVector.x=-1;break;case 'd':moveVector.x=1;break;}});
             document.addEventListener('keyup', e=>{switch(e.key.toLowerCase()){case 'w':case 's':moveVector.z=0;break;case 'a':case 'd':moveVector.x=0;break;}});
             document.addEventListener('mousedown', () => isDragging = true);
@@ -416,32 +648,78 @@
             lookEuler.x = Math.max(-1.4, Math.min(1.4, lookEuler.x));
             camera.quaternion.setFromEuler(lookEuler);
         }
+
+        const clock = new THREE.Clock();
+
         function animate() {
             requestAnimationFrame(animate);
             if(!isRunning) return;
+
+            const dt = clock.getDelta();
+            const now = Date.now();
+
             if(moveVector.lengthSq()>0) {
-                const s = 0.2;
+                const s = 4.0 * dt; 
                 const f = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion); f.y=0; f.normalize();
                 const r = new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion); r.y=0; r.normalize();
                 const next = camera.position.clone().addScaledVector(f, -moveVector.z*s).addScaledVector(r, moveVector.x*s);
+                
                 const box = new THREE.Box3().setFromCenterAndSize(next, new THREE.Vector3(0.5,1,0.5));
                 let hit=false; for(let c of colliders) if(box.intersectsBox(c)) { hit=true; break; }
                 if(!hit) camera.position.copy(next);
             }
+
             Object.keys(otherPlayers).forEach(key => {
                 const p = otherPlayers[key];
+                
                 if (!p || !p.group) return;
-                if(Date.now() - p.lastUpdate > 40000) { scene.remove(p.group); delete otherPlayers[key]; return; }
+
+                if(now - p.lastUpdate > 40000) {
+                    scene.remove(p.group);
+                    delete otherPlayers[key];
+                    return;
+                }
+                const dist = p.group.position.distanceTo(p.targetPos);
                 p.group.position.lerp(p.targetPos, 0.1);
                 p.group.rotation.y += (p.targetRot - p.group.rotation.y) * 0.1;
+
+                if(dist > 0.05) {
+                    const time = now * 0.01;
+                    p.legL.rotation.x = Math.sin(time) * 0.5;
+                    p.legR.rotation.x = -Math.sin(time) * 0.5;
+                    p.armL.rotation.x = -Math.sin(time) * 0.5;
+                    p.armR.rotation.x = Math.sin(time) * 0.5;
+                } else {
+                    p.legL.rotation.x = p.legR.rotation.x = 0;
+                    p.armL.rotation.x = p.armR.rotation.x = 0;
+                }
             });
+
             raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
             const hits = raycaster.intersectObjects(artFrames);
             if(hits.length>0 && hits[0].distance<8) {
-                if(targetFrame!==hits[0].object) { targetFrame=hits[0].object; promptEl.style.display='block'; promptEl.innerText = `更換畫作`; }
+                if(targetFrame!==hits[0].object) {
+                    targetFrame=hits[0].object;
+                    promptEl.style.display='block';
+                }
             } else { targetFrame=null; promptEl.style.display='none'; }
+
             renderer.render(scene, camera);
         }
+
+        // --------------------------------------------------------
+        // 🗑️ 管理員功能 (密碼: admin123)
+        // --------------------------------------------------------
+        window.resetMuseum = async () => {
+            if(prompt("密碼：") !== "admin123") return alert("錯誤");
+            if(!confirm("確定清空？")) return;
+            const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'objects')); 
+            const snapshot = await getDocs(q);
+            const batch = writeBatch(db);
+            let count = 0;
+            snapshot.forEach(doc => { if(doc.id.startsWith('a_')) { batch.delete(doc.ref); count++; }});
+            if(count > 0) { await batch.commit(); alert("已清空！"); location.reload(); }
+        };
     </script>
 </body>
 </html>
