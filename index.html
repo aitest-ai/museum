@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>智慧策展美術館 - v24 終極完全版</title>
+    <title>智慧策展美術館 - v25 長廊擴建版</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Microsoft JhengHei', sans-serif; background-color: #000; user-select: none; -webkit-user-select: none; }
         
@@ -131,7 +131,7 @@
 
         // --------------------------------------------------------
         
-        let appId = 'smart-museum-v24-ultimate'; // 終極版空間
+        let appId = 'smart-museum-v25-long-gallery'; 
         let app, auth, db;
 
         try {
@@ -239,7 +239,7 @@
             const fill = new THREE.DirectionalLight(0xddeeff, 0.3);
             fill.position.set(-20, 30, -20); scene.add(fill);
 
-            buildExpandedScene(); 
+            buildGalleryScene(); 
 
             raycaster = new THREE.Raycaster();
             setupControls();
@@ -254,27 +254,30 @@
             animate();
         }
 
-        // ★ 使用「擴建版」地圖
-        function buildExpandedScene() {
+        // --------------------------------------------------------
+        // 🏛️ v25 建築工程：經典大廳 + 東側長廊擴建
+        // --------------------------------------------------------
+        function buildGalleryScene() {
             const matWood = new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 0.4 }); 
             const matWall = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.9 });
             const matCeil = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 1.0 });
             const matRugMain = new THREE.MeshStandardMaterial({ color: 0x3e2723, roughness: 0.95 });
             const matRugRotunda = new THREE.MeshStandardMaterial({ color: 0x4e342e, roughness: 0.95 });
 
-            const floor = new THREE.Mesh(new THREE.PlaneGeometry(160, 160), matWood);
+            // 1. 地板與天花板 (擴大至 160x120 以容納東側延伸)
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(160, 120), matWood);
             floor.rotation.x = -Math.PI/2; floor.receiveShadow = true; scene.add(floor);
-            const ceil = new THREE.Mesh(new THREE.PlaneGeometry(160, 160), matCeil);
+            const ceil = new THREE.Mesh(new THREE.PlaneGeometry(160, 120), matCeil);
             ceil.rotation.x = Math.PI/2; ceil.position.y = 8; scene.add(ceil);
 
+            // 地毯
             const addRug = (x, z, w, h, mat) => {
                 const rug = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
                 rug.rotation.x = -Math.PI/2; rug.position.set(x, 0.02, z); rug.receiveShadow = true; scene.add(rug);
             };
-            addRug(0, 0, 12, 16, matRugMain);
-            addRug(28, 0, 10, 10, matRugRotunda);
-            addRug(0, -25, 12, 20, matRugMain); 
-            addRug(0, 25, 12, 20, matRugMain);  
+            addRug(0, 0, 12, 16, matRugMain); // 中央
+            addRug(28, 0, 30, 8, matRugMain); // ★ 新增：東側長廊紅毯
+            addRug(50, 0, 10, 10, matRugRotunda); // ★ 移位後的圓廳
 
             const addWall = (x, z, w, h, r) => {
                 const geo = new THREE.BoxGeometry(w, h, WALL_T);
@@ -284,48 +287,54 @@
                 colliders.push(new THREE.Box3().setFromObject(mesh));
             };
 
-            // --- 中央大廳 (擴建版) ---
-            addWall(-7, -12, 6, 8, 0); // 北左
-            addWall(7, -12, 6, 8, 0);  // 北右
-            addWall(-7, 12, 6, 8, 0);  // 南左
-            addWall(7, 12, 6, 8, 0);   // 南右
-
-            addWall(-10, 0, 24, 8, Math.PI/2); // 西牆
-            addWall(10, 8, 8, 8, Math.PI/2);   // 東牆 (上)
-            addWall(10, -8, 8, 8, Math.PI/2);  // 東牆 (下)
+            // 2. 中央大廳 (經典格局)
+            addWall(0, -12, 20, 8, 0); // 北牆
+            addWall(0, 12, 20, 8, 0);  // 南牆
+            addWall(-10, 0, 24, 8, Math.PI/2); // 西牆 (通往迷宮)
             
-            // ★ 修復：補回通往東側圓廳的走廊牆
-            addWall(16, 4, 12, 8, 0); 
-            addWall(16, -4, 12, 8, 0);
+            // 中央大廳畫作
+            addArt('Hall_S_L', -5, 4, -12 + FRAME_OFF, 0, 4.5, 3.0); 
+            addArt('Hall_S_R', 5, 4, -12 + FRAME_OFF, 0, 4.5, 3.0);
+            addArt('Hall_N_L', -5, 4, 12 - FRAME_OFF, Math.PI, 4.5, 3.0);
+            addArt('Hall_N_R', 5, 4, 12 - FRAME_OFF, Math.PI, 4.5, 3.0);
+            addWall(0, 5, 8, 5, 0); // 中央屏風
+            addArt('Center_S', 0, 3.5, 5 + FRAME_OFF, 0, 3.5, 2.5);
+            addArt('Center_N', 0, 3.5, 5 - FRAME_OFF, Math.PI, 3.5, 2.5);
 
-            // --- 北側長廊 (North Wing) ---
-            addWall(-10, -26, 28, 8, Math.PI/2); 
-            addWall(10, -26, 28, 8, Math.PI/2);  
-            addWall(0, -40, 20, 8, 0);           
-            
-            addArt('North_W_1', -10 + FRAME_OFF, 4, -20, Math.PI/2, 3.5, 3.5);
-            addArt('North_W_2', -10 + FRAME_OFF, 4, -30, Math.PI/2, 3.5, 3.5);
-            addArt('North_E_1', 10 - FRAME_OFF, 4, -20, -Math.PI/2, 3.5, 3.5);
-            addArt('North_E_2', 10 - FRAME_OFF, 4, -30, -Math.PI/2, 3.5, 3.5);
-            addArt('North_End_L', -5, 4, -40 + FRAME_OFF, 0, 3.5, 3.5);
-            addArt('North_End_R', 5, 4, -40 + FRAME_OFF, 0, 3.5, 3.5);
+            // 通往西側迷宮的畫作
+            addArt('Hall_W_1', -10 + FRAME_OFF, 4, -6, Math.PI/2, 3.0, 4.5);
+            addArt('Hall_W_2', -10 + FRAME_OFF, 4, 6, Math.PI/2, 3.0, 4.5);
 
-            // --- 南側大廳 (South Wing) ---
-            addWall(-10, 26, 28, 8, Math.PI/2); 
-            addWall(10, 26, 28, 8, Math.PI/2);  
-            addWall(0, 40, 20, 8, 0);           
+            // 東牆 (通往長廊的入口)
+            addWall(10, 8, 8, 8, Math.PI/2);   // 東牆上
+            addWall(10, -8, 8, 8, Math.PI/2);  // 東牆下
+            addArt('Hall_E_S', 10 - FRAME_OFF, 4, -8, -Math.PI/2, 3.5, 3.5);
+            addArt('Hall_E_N', 10 - FRAME_OFF, 4, 8, -Math.PI/2, 3.5, 3.5);
 
-            addArt('South_W_1', -10 + FRAME_OFF, 4, 20, Math.PI/2, 3.5, 3.5);
-            addArt('South_W_2', -10 + FRAME_OFF, 4, 30, Math.PI/2, 3.5, 3.5);
-            addArt('South_E_1', 10 - FRAME_OFF, 4, 20, -Math.PI/2, 3.5, 3.5);
-            addArt('South_E_2', 10 - FRAME_OFF, 4, 30, -Math.PI/2, 3.5, 3.5);
-            addArt('South_End', 0, 4, 40 - FRAME_OFF, Math.PI, 5, 3.5);
+            // 3. ★ 東側藝術長廊 (Extended Gallery) ★
+            // 從 x=10 延伸到 x=42
+            // 北長廊牆
+            addWall(26, -6, 32, 8, 0); 
+            // 南長廊牆
+            addWall(26, 6, 32, 8, 0);
 
-            // --- 圓廳 (Rotunda) ---
-            const cx=28, cz=0, rad=9, seg=12;
+            // 長廊畫作 (新增 8 幅)
+            addArt('Gallery_N_1', 16, 4, -6 + FRAME_OFF, 0, 3.5, 3.5);
+            addArt('Gallery_N_2', 24, 4, -6 + FRAME_OFF, 0, 3.5, 3.5);
+            addArt('Gallery_N_3', 32, 4, -6 + FRAME_OFF, 0, 3.5, 3.5);
+            addArt('Gallery_N_4', 40, 4, -6 + FRAME_OFF, 0, 3.5, 3.5);
+
+            addArt('Gallery_S_1', 16, 4, 6 - FRAME_OFF, Math.PI, 3.5, 3.5);
+            addArt('Gallery_S_2', 24, 4, 6 - FRAME_OFF, Math.PI, 3.5, 3.5);
+            addArt('Gallery_S_3', 32, 4, 6 - FRAME_OFF, Math.PI, 3.5, 3.5);
+            addArt('Gallery_S_4', 40, 4, 6 - FRAME_OFF, Math.PI, 3.5, 3.5);
+
+            // 4. ★ 圓形展廳 (Rotunda) - 向東推移 ★
+            // 原本 cx=28, 現在推到 cx=50 (長廊盡頭)
+            const cx=50, cz=0, rad=9, seg=12;
             for(let i=0; i<seg; i++) {
                 const a = (i/seg)*Math.PI*2;
-                if(a > Math.PI*0.8 && a < Math.PI*1.2) continue;
+                if(a > Math.PI*0.8 && a < Math.PI*1.2) continue; // 開口朝西，接長廊
                 const w = (Math.PI*2*rad)/seg + 0.6;
                 const wx = cx + Math.cos(a)*rad;
                 const wz = cz + Math.sin(a)*rad;
@@ -333,29 +342,20 @@
                 addArt(`Rot_${i}`, cx+Math.cos(a)*(rad-0.65), 4, cz+Math.sin(a)*(rad-0.65), -a+Math.PI*1.5, 3.0, 4.2);
             }
 
-            // --- 迷宮 (Maze) ---
+            // 5. 西側迷宮 (Maze) - 保持不動
             addWall(-35, 0, 40, 8, Math.PI/2);
             addWall(-22.5, -20, 25, 8, 0);
             addWall(-22.5, 20, 25, 8, 0);
             addWall(-22.5, -5, 15, 8, 0);
             addWall(-22.5, 5, 15, 8, 0);
             
-            // ★ 修復：補回通往西側迷宮的走廊牆 (很重要)
+            // 連接走廊牆
             addWall(-22.5, 6, 25, 8, 0); 
             addWall(-22.5, -6, 25, 8, 0); 
 
-            // 原始畫作
-            addArt('Hall_W_1', -10 + FRAME_OFF, 4, -6, Math.PI/2, 3.0, 4.5);
-            addArt('Hall_W_2', -10 + FRAME_OFF, 4, 6, Math.PI/2, 3.0, 4.5);
-            addArt('Hall_E_S', 10 - FRAME_OFF, 4, -8, -Math.PI/2, 3.5, 3.5);
-            addArt('Hall_E_N', 10 - FRAME_OFF, 4, 8, -Math.PI/2, 3.5, 3.5);
-
-            addWall(0, 5, 8, 5, 0); // 中央屏風
-            addArt('Center_S', 0, 3.5, 5 + FRAME_OFF, 0, 3.5, 2.5);
-            addArt('Center_N', 0, 3.5, 5 - FRAME_OFF, Math.PI, 3.5, 2.5);
-            
-            addArt('Corr_N', 16, 4, 4 - FRAME_OFF, Math.PI, 2.5, 2.5);
-            addArt('Corr_S', 16, 4, -4 + FRAME_OFF, 0, 2.5, 2.5);
+            // 迷宮畫作
+            addArt('Corr_N', -16, 4, 6 - FRAME_OFF, Math.PI, 3.5, 3.5); // 原本是 x=16, 移到迷宮入口
+            addArt('Corr_S', -16, 4, -6 + FRAME_OFF, 0, 3.5, 3.5);
 
             addArt('Maze_Far_W', -35 + FRAME_OFF, 4, 0, Math.PI/2, 6.0, 3.5);
             addArt('Maze_Div_S_N', -22.5, 4, -5 - FRAME_OFF, Math.PI, 3.0, 4.0);
@@ -439,6 +439,7 @@
             }, 500);
         }
 
+        // --- 人物模型 (放大 1.5 倍) ---
         function createMinecraftChar(colorHex) {
             const group = new THREE.Group();
             const color = new THREE.Color(colorHex);
@@ -474,7 +475,7 @@
 
             group.traverse(o => { if(o.isMesh) { o.castShadow = true; o.receiveShadow = true; }});
             
-            group.scale.set(1.5, 1.5, 1.5); // 人物放大
+            group.scale.set(1.5, 1.5, 1.5); // 放大
 
             return { group, armL: armLGroup, armR: armRGroup, legL: legLGroup, legR: legRGroup, head };
         }
@@ -521,7 +522,6 @@
             const f = artFrames.find(x => x.userData.id===fid);
             if(f && src) {
                 const loader = new THREE.TextureLoader();
-                // ★ 關鍵：允許跨域讀取 Cloudinary 圖片
                 loader.setCrossOrigin('anonymous');
                 loader.load(src, t=>{ 
                     t.encoding=THREE.sRGBEncoding; 
@@ -534,6 +534,7 @@
 
         promptEl.addEventListener('click', ()=>targetFrame && uploadInput.click());
         
+        // Cloudinary Logic
         uploadInput.addEventListener('change', async e => {
             if(!e.target.files[0] || !targetFrame) return;
 
