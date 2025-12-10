@@ -214,46 +214,21 @@
             }
         }
 
-        // ✅ 安全版隨機出生點：會避開牆體碰撞盒
+        // 隨機出生點 (新增中島區)
         function getSafeSpawnPoint() {
-            // 幾個大區域中心點
             const spawns = [
-                { x: 0,   z: 0,  r: 0 },       // 中央大廳
-                { x: 28,  z: 6,  r: -1.57 },   // 東側南廊
-                { x: 28,  z: -6, r: -1.57 },   // 東側北廊
-                { x: -13, z: 0,  r: 1.57 }     // 西側（稍微遠離 x=-16 那片牆）
+                { x: 0, z: 0, r: 0 },       // 中央
+                { x: 28, z: 6, r: -1.57 },  // 東側南廊
+                { x: 28, z: -6, r: -1.57 }, // 東側北廊
+                { x: -16, z: 0, r: 1.57 }   // 西側
             ];
-
-            const TRY_TIMES = 20;
-            const JITTER_RANGE = 3.0;
-
-            for (let i = 0; i < TRY_TIMES; i++) {
-                const base = spawns[Math.floor(Math.random() * spawns.length)];
-
-                const x = base.x + (Math.random() - 0.5) * JITTER_RANGE;
-                const z = base.z + (Math.random() - 0.5) * JITTER_RANGE;
-
-                // 玩家小盒子，檢查是否撞牆
-                const box = new THREE.Box3().setFromCenterAndSize(
-                    new THREE.Vector3(x, 2.55, z),
-                    new THREE.Vector3(0.6, 2.0, 0.6)
-                );
-
-                let hit = false;
-                for (const c of colliders) {
-                    if (box.intersectsBox(c)) {
-                        hit = true;
-                        break;
-                    }
-                }
-
-                if (!hit) {
-                    return { x, y: 2.55, z, r: base.r };
-                }
-            }
-
-            // 萬一都失敗，退回中央
-            return { x: 0, y: 2.55, z: 0, r: 0 };
+            const pick = spawns[Math.floor(Math.random() * spawns.length)];
+            return {
+                x: pick.x + (Math.random() - 0.5) * 3, 
+                y: 2.55, 
+                z: pick.z + (Math.random() - 0.5) * 3,
+                r: pick.r
+            };
         }
 
         function init3D() {
@@ -319,25 +294,12 @@
             addRug(-16, 0, 12, 20, matRugMain);
             addRug(54, 0, 10, 10, matRugRotunda);
 
-            // ✅ 新版 addWall：用不可見 Box 當碰撞，Plane 當視覺牆，避免交界長柱子
             const addWall = (x, z, w, h, r) => {
-                // 碰撞牆（不可見）
-                const geoCol = new THREE.BoxGeometry(w, h, WALL_T);
-                const matCol = new THREE.MeshBasicMaterial({ visible: false });
-                const colMesh = new THREE.Mesh(geoCol, matCol);
-                colMesh.position.set(x, h / 2, z);
-                colMesh.rotation.y = r;
-                scene.add(colMesh);
-                const box = new THREE.Box3().setFromObject(colMesh);
-                colliders.push(box);
-
-                // 視覺牆（薄平面，雙面）
-                const geoVis = new THREE.PlaneGeometry(w, h);
-                const meshVis = new THREE.Mesh(geoVis, matWall);
-                meshVis.position.set(x, h / 2, z);
-                meshVis.rotation.y = r;
-                meshVis.material.side = THREE.DoubleSide;
-                scene.add(meshVis);
+                const geo = new THREE.BoxGeometry(w, h, WALL_T);
+                const mesh = new THREE.Mesh(geo, matWall);
+                mesh.position.set(x, h/2, z); mesh.rotation.y = r;
+                scene.add(mesh);
+                colliders.push(new THREE.Box3().setFromObject(mesh));
             };
 
             // 1. 中央大廳
@@ -359,11 +321,19 @@
             addArt('Center_S', 0, 3.5, 5 + FRAME_OFF, 0, 3.5, 2.5);
             addArt('Center_N', 0, 3.5, 5 - FRAME_OFF, Math.PI, 3.5, 2.5);
 
-            // 2. 東側寬畫廊 (包含中島)
-            addWall(22, -15, 12, 8, 0); addWall(22, 15, 12, 8, 0);
-            addWall(40, -15, 24, 8, 0); addWall(40, 15, 24, 8, 0);
+            // ===============================================
+            // ★★★ 修正後：東側寬畫廊 (牆面切開以露出側廳) ★★★
+            // ===============================================
+            // 北側牆面 (原本是連續的，現在分為左右兩段)
+            addWall(21, -15, 10, 8, 0); // X: 16~26
+            addWall(43, -15, 18, 8, 0); // X: 34~52
 
-            // 外牆畫作
+            // 南側牆面
+            addWall(21, 15, 10, 8, 0);  // X: 16~26
+            addWall(43, 15, 18, 8, 0);  // X: 34~52
+            // ===============================================
+
+            // ★ 加密的外牆畫作 (4張/面)
             addArt('Wide_N_1', 29, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
             addArt('Wide_N_2', 35, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
             addArt('Wide_N_3', 41, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
@@ -374,18 +344,20 @@
             addArt('Wide_S_3', 41, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5);
             addArt('Wide_S_4', 47, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5);
 
-            // 中島展牆
+            // ★★★ 新增：中島展牆 (Center Partitions) ★★★
+            // 中島牆 1 (X=32, Z=0)
             addWall(32, 0, 10, 6, 0); 
-            addArt('Mid_1_N_L', 30, 4, -0 - FRAME_OFF, Math.PI, 3, 3);
-            addArt('Mid_1_N_R', 34, 4, -0 - FRAME_OFF, Math.PI, 3, 3);
-            addArt('Mid_1_S_L', 30, 4, 0 + FRAME_OFF, 0, 3, 3);
-            addArt('Mid_1_S_R', 34, 4, 0 + FRAME_OFF, 0, 3, 3);
+            addArt('Mid_1_N_L', 30, 4, -0 - FRAME_OFF, Math.PI, 3, 3); // 朝北左
+            addArt('Mid_1_N_R', 34, 4, -0 - FRAME_OFF, Math.PI, 3, 3); // 朝北右
+            addArt('Mid_1_S_L', 30, 4, 0 + FRAME_OFF, 0, 3, 3);        // 朝南左
+            addArt('Mid_1_S_R', 34, 4, 0 + FRAME_OFF, 0, 3, 3);        // 朝南右
 
+            // 中島牆 2 (X=44, Z=0)
             addWall(44, 0, 10, 6, 0);
             addArt('Mid_2_N_L', 42, 4, -0 - FRAME_OFF, Math.PI, 3, 3); 
             addArt('Mid_2_N_R', 46, 4, -0 - FRAME_OFF, Math.PI, 3, 3); 
-            addArt('Mid_2_S_L', 42, 4, 0 + FRAME_OFF, 0, 3, 3);       
-            addArt('Mid_2_S_R', 46, 4, 0 + FRAME_OFF, 0, 3, 3);       
+            addArt('Mid_2_S_L', 42, 4, 0 + FRAME_OFF, 0, 3, 3);        
+            addArt('Mid_2_S_R', 46, 4, 0 + FRAME_OFF, 0, 3, 3);        
 
             // 側廳 (Alcoves)
             addWall(26, -20, 10, 8, Math.PI/2); addWall(34, -20, 10, 8, Math.PI/2); addWall(30, -25, 8, 8, 0);
@@ -640,7 +612,7 @@
                 const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'objects');
                 const q = query(collectionRef, where("ownerId", "==", currentUser.uid));
                 const querySnapshot = await getDocs(q);
-                // 限額 2 張
+                // ★ 限額 2 張
                 if (querySnapshot.size >= 2) {
                     alert(`🎨 您已經展出 2 幅作品囉！請去欣賞別人的作品吧！`);
                     uploadInput.value = "";
