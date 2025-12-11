@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>永續金門美術館</title>
+    <title>永續金門美術館 - v31 修正啟動順序版</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Microsoft JhengHei', sans-serif; background-color: #000; user-select: none; -webkit-user-select: none; }
         
@@ -131,7 +131,7 @@
 
         // --------------------------------------------------------
         
-        let appId = 'smart-museum-v30-partitions'; // v30 空間極致版
+        let appId = 'smart-museum-v30-partitions'; 
         let app, auth, db;
 
         try {
@@ -176,8 +176,32 @@
 
             if(!isRunning) {
                 window.addEventListener('resize', onResize);
-                init3D();
+                
+                // 1. 優先建立 3D 場景 (確保 camera 存在)
+                init3D(); 
                 isRunning = true;
+
+                // 2. 監聽 Firebase 登入狀態 (現在 camera 已經安全了)
+                onAuthStateChanged(auth, u => { 
+                    if(u) { 
+                        currentUser=u; 
+                        statusEl.innerText=`● ${myName} (線上)`; 
+                        statusEl.style.color="#c0a060"; 
+                        
+                        // 隨機出生
+                        const spawn = getSafeSpawnPoint();
+                        if(camera) { // 雙重保險
+                            camera.position.set(spawn.x, spawn.y, spawn.z);
+                            camera.rotation.y = spawn.r;
+                        }
+
+                        setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'objects', `p_${u.uid}`), 
+                            { x:spawn.x, y:spawn.y, z:spawn.z, ry:spawn.r, name:myName, c:'#'+myColor, t:Date.now() }
+                        ).then(startNetworkSync);
+                    } 
+                });
+
+                // 3. 執行登入
                 await initAuth();
             }
 
@@ -256,7 +280,7 @@
             const fill = new THREE.DirectionalLight(0xddeeff, 0.3);
             fill.position.set(-20, 30, -20); scene.add(fill);
 
-            buildSceneV30(); // ★ v30 空間極致版
+            buildSceneV30(); 
 
             raycaster = new THREE.Raycaster();
             setupControls();
@@ -313,8 +337,6 @@
             addArt('Hall_S_L', -10, 4, 12 - FRAME_OFF, Math.PI, 3.5, 3.5);
             addArt('Hall_S_R', 10, 4, 12 - FRAME_OFF, Math.PI, 3.5, 3.5);
             
-            // ★★★ 修正 1：出生點左側畫作修正 (精確計算後的位置) ★★★
-            // Z=±7.5 是唯一的安全區間，確保完全不被 Z=12 的轉角遮擋，也不會突出到 Z=4 的缺口。
             addArt('Hall_W_Top', -16 + FRAME_OFF, 4, -7.5, Math.PI/2, 3.5, 3.5);
             addArt('Hall_W_Bot', -16 + FRAME_OFF, 4, 7.5, Math.PI/2, 3.5, 3.5);
             addArt('Hall_E_Top', 16 - FRAME_OFF, 4, -9, -Math.PI/2, 3.5, 3.5);
@@ -324,44 +346,36 @@
             addArt('Center_S', 0, 3.5, 5 + FRAME_OFF, 0, 3.5, 2.5);
             addArt('Center_N', 0, 3.5, 5 - FRAME_OFF, Math.PI, 3.5, 2.5);
 
-            // 2. OK-東側寬畫廊 (修正牆面結構以避免重疊)
-            // ★ 左段牆 (X: 16 ~ 25.4) - 避開 X=26 的垂直牆
+            // 2. 東側寬畫廊
             addWall(21.1, -15, 11, 8, 0); 
             addWall(21.1, 15, 11, 8, 0);  
 
-            // ★ OK-北側右段牆向右縮，避開垂直牆 (X: 36 ~ 52)
             addWall(43.4, -15, 20, 8, 0); 
             addWall(43.4, 15, 20, 8, 0);  
 
-            // OK-北側畫作配置
             addArt('Wide_N_1', 22, 4, -15 + FRAME_OFF, 0, 3.5, 3.5); 
-            // ★ 畫作 Wide_N_2 左移至 X=38 (緊貼新牆面起點 X=36，不擋入口)
             addArt('Wide_N_2', 36, 4, -15 + FRAME_OFF, 0, 3.5, 3.5); 
             addArt('Wide_N_3', 42, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
             addArt('Wide_N_4', 48, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
 
-            // OK-南側畫作配置 (同步修正)
             addArt('Wide_S_1', 22, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5); 
             addArt('Wide_S_2', 36, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5); 
             addArt('Wide_S_3', 42, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5);
             addArt('Wide_S_4', 48, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5);
 
-            // ★★★ 中島展牆 ★★★
             addWall(32, 0, 10, 6, 0); 
             addArt('Mid_1_N_L', 30, 4, -0 - FRAME_OFF, Math.PI, 3, 3);
             addArt('Mid_1_N_R', 34, 4, -0 - FRAME_OFF, Math.PI, 3, 3);
             addArt('Mid_1_S_L', 30, 4, 0 + FRAME_OFF, 0, 3, 3);      
             addArt('Mid_1_S_R', 34, 4, 0 + FRAME_OFF, 0, 3, 3);      
 
-            // 側廳 (Alcoves) - ★ 恢復垂直牆至原位 X=34
             addWall(26, -20, 10, 8, Math.PI/2); 
-            addWall(34, -20, 10, 8, Math.PI/2); // 垂直牆不動
+            addWall(34, -20, 10, 8, Math.PI/2); 
             addWall(30, -25, 8, 8, 0);
             addArt('Alc_N_W', 26 + FRAME_OFF, 4, -20, Math.PI/2, 3, 3);
             addArt('Alc_N_E', 34 - FRAME_OFF, 4, -20, -Math.PI/2, 3, 3);
             addArt('Alc_N_B', 30, 4, -25 + FRAME_OFF, 0, 4, 3);
 
-            // 南側側廳
             addWall(26, 20, 10, 8, Math.PI/2); 
             addWall(34, 20, 10, 8, Math.PI/2); 
             addWall(30, 25, 8, 8, 0);
@@ -379,9 +393,7 @@
                 addArt(`Rot_${i}`, cx+Math.cos(a)*(rad-0.65), 4, cz+Math.sin(a)*(rad-0.65), -a+Math.PI*1.5, 3.0, 4.2);
             }
 
-            // 4. 西側大廳 (★★★ 修正：外牆直接延伸到底 ★★★)
-            // 原本牆面長度只到 X=-22，現在改為從 X=-10 延伸到 X=-35 (寬度 25, 中心 -22.5)
-            // 這樣直接形成一個長廊，把迷宮結構包在裡面
+            // 4. 西側大廳
             addWall(-22.5, -15, 25, 8, 0); 
             addWall(-22.5, 15, 25, 8, 0);
             
@@ -392,15 +404,12 @@
 
             // 5. 迷宮
             const mx = -22.5; 
-            addWall(-23, 10, 15, 8, 0); addWall(-23, -10, 15, 8, 0);  //OK
-            //addArt('Maze_Ent_N', mx + FRAME_OFF, 4, 6, Math.PI/2, 3, 3);
-            //addArt('Maze_Ent_S', mx + FRAME_OFF, 4, -6, Math.PI/2, 3, 3);
-
+            addWall(-23, 10, 15, 8, 0); addWall(-23, -10, 15, 8, 0);  
             addWall(-35, 0, 40, 8, Math.PI/2); addWall(mx, -20, 25, 8, 0); addWall(mx, 20, 25, 8, 0)
 
             addArt('Maze_Far_W', -35 + FRAME_OFF, 4, 0, Math.PI/2, 6.0, 3.5);
             
-            addWall(-23, -5, 15, 8, 0); addWall(-23, 5, 15, 8, 0);  //OK
+            addWall(-23, -5, 15, 8, 0); addWall(-23, 5, 15, 8, 0);  
             addArt('Maze_Div_1', mx, 4, -5 - FRAME_OFF, Math.PI, 3.5, 3.5);
             addArt('Maze_Div_2', mx, 4, -5 + FRAME_OFF, 0, 3.5, 3.5); 
             addArt('Maze_Div_3', mx, 4, 5 - FRAME_OFF, Math.PI, 3.5, 3.5);
@@ -458,23 +467,6 @@
                 alert("連線失敗！請檢查網域設定或 Firebase 規則。");
             }
         }
-
-        onAuthStateChanged(auth, u => { 
-            if(u) { 
-                currentUser=u; 
-                statusEl.innerText=`● ${myName} (線上)`; 
-                statusEl.style.color="#c0a060"; 
-                
-                // 隨機出生
-                const spawn = getSafeSpawnPoint();
-                camera.position.set(spawn.x, spawn.y, spawn.z);
-                camera.rotation.y = spawn.r;
-
-                setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'objects', `p_${u.uid}`), 
-                    { x:spawn.x, y:spawn.y, z:spawn.z, ry:spawn.r, name:myName, c:'#'+myColor, t:Date.now() }
-                ).then(startNetworkSync);
-            } 
-        });
 
         function startNetworkSync() {
             let lastX=0, lastZ=0, lastRy=0;
