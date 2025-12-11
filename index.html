@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>永續金門美術館 - v31 修正啟動順序版</title>
+    <title>永續金門美術館</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Microsoft JhengHei', sans-serif; background-color: #000; user-select: none; -webkit-user-select: none; }
         
@@ -608,14 +608,14 @@
                 const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'objects');
                 const q = query(collectionRef, where("ownerId", "==", currentUser.uid));
                 const querySnapshot = await getDocs(q);
-                // ★ 限額 2 張
-                if (querySnapshot.size >= 2) {
-                    alert(`🎨 您已經展出 2 幅作品囉！請去欣賞別人的作品吧！`);
+                // ★ 限額 5 張
+                if (querySnapshot.size >= 5) {
+                    alert(`🎨 您已經展出 5 幅作品囉！請去欣賞別人的作品吧！`);
                     uploadInput.value = "";
                     return;
                 }
 
-                uploadStatus.innerHTML = "☁️ 正在上傳至雲端圖床...<br><span style='font-size:12px'>(請稍候...)</span>";
+                uploadStatus.innerHTML = "☁️ 正在上傳中...<br><span style='font-size:12px'>(請稍候...)</span>";
                 uploadStatus.style.display = 'block';
 
                 const file = e.target.files[0];
