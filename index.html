@@ -313,36 +313,40 @@
             addArt('Hall_S_L', -10, 4, 12 - FRAME_OFF, Math.PI, 3.5, 3.5);
             addArt('Hall_S_R', 10, 4, 12 - FRAME_OFF, Math.PI, 3.5, 3.5);
             
-            // ★★★ 修正 1：出生點矮牆區畫作 ★★★
-            // 原本 Z= -6/6 導致被柱子結構吃掉，現在改為 ±3.5，讓它更靠近牆面中心，完全避開柱子。
-            addArt('Hall_W_Top', -16 + FRAME_OFF, 4, -3.5, Math.PI/2, 3.5, 3.5);
-            addArt('Hall_W_Bot', -16 + FRAME_OFF, 4, 3.5, Math.PI/2, 3.5, 3.5);
-            addArt('Hall_E_Top', 16 - FRAME_OFF, 4, -3.5, -Math.PI/2, 3.5, 3.5);
-            addArt('Hall_E_Bot', 16 - FRAME_OFF, 4, 3.5, -Math.PI/2, 3.5, 3.5);
+            // ★★★ 修正 1：出生點畫作重疊問題 ★★★
+            // 將 Z 改為 10 和 -10，這樣畫框會位於西側大廳的兩根柱子正中央，完全避開轉角遮擋。
+            addArt('Hall_W_Top', -16 + FRAME_OFF, 4, -10, Math.PI/2, 3.5, 3.5);
+            addArt('Hall_W_Bot', -16 + FRAME_OFF, 4, 10, Math.PI/2, 3.5, 3.5);
+            addArt('Hall_E_Top', 16 - FRAME_OFF, 4, -9, -Math.PI/2, 3.5, 3.5);
+            addArt('Hall_E_Bot', 16 - FRAME_OFF, 4, 9, -Math.PI/2, 3.5, 3.5);
 
             addWall(0, 5, 8, 5, 0); 
             addArt('Center_S', 0, 3.5, 5 + FRAME_OFF, 0, 3.5, 2.5);
             addArt('Center_N', 0, 3.5, 5 - FRAME_OFF, Math.PI, 3.5, 2.5);
 
-            // 2. 東側寬畫廊
+            // 2. 東側寬畫廊 (修正牆面結構)
+            // 左段牆保持不變 (X: 16~26)
             addWall(21, -15, 10, 8, 0); 
-            addWall(43, -15, 18, 8, 0); 
             addWall(21, 15, 10, 8, 0);  
-            addWall(43, 15, 18, 8, 0);  
+
+            // ★★★ 修正 2：牆面與入口結構內縮 ★★★
+            // 將原本從 X=34 開始的牆面 (X: 34~52)，向後退縮至 X=36 開始 (X: 36~52)
+            // 這樣入口寬度從 8 增加到 10，且解決了畫框位置尷尬的問題。
+            addWall(44, -15, 16, 8, 0); // 右段北牆
+            addWall(44, 15, 16, 8, 0);  // 右段南牆
 
             // 北側畫作配置
-            addArt('Wide_N_1', 22, 4, -15 + FRAME_OFF, 0, 3.5, 3.5); // 入口左側
-            // ★★★ 修正 2：中島入口右側畫作移至最深處 ★★★
-            // 原本 X=35 擋住入口，現在移到 X=50 (靠近圓廳的牆面上)
-            addArt('Wide_N_2', 50, 4, -15 + FRAME_OFF, 0, 3.5, 3.5); 
-            addArt('Wide_N_3', 41, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
-            addArt('Wide_N_4', 47, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
+            addArt('Wide_N_1', 22, 4, -15 + FRAME_OFF, 0, 3.5, 3.5); 
+            // 畫作現在掛在修正後的牆面上 (X=38)，入口寬敞不擋路
+            addArt('Wide_N_2', 38, 4, -15 + FRAME_OFF, 0, 3.5, 3.5); 
+            addArt('Wide_N_3', 44, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
+            addArt('Wide_N_4', 50, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
 
             // 南側畫作配置 (同步修正)
-            addArt('Wide_S_1', 22, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5); // 入口左側
-            addArt('Wide_S_2', 50, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5); // 移到圓廳旁
-            addArt('Wide_S_3', 41, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5);
-            addArt('Wide_S_4', 47, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5);
+            addArt('Wide_S_1', 22, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5); 
+            addArt('Wide_S_2', 38, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5); 
+            addArt('Wide_S_3', 44, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5);
+            addArt('Wide_S_4', 50, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5);
 
             // ★★★ 中島展牆 ★★★
             addWall(32, 0, 10, 6, 0); 
@@ -357,15 +361,21 @@
             addArt('Mid_2_S_L', 42, 4, 0 + FRAME_OFF, 0, 3, 3);        
             addArt('Mid_2_S_R', 46, 4, 0 + FRAME_OFF, 0, 3, 3);        
 
-            // 側廳 (Alcoves)
-            addWall(26, -20, 10, 8, Math.PI/2); addWall(34, -20, 10, 8, Math.PI/2); addWall(30, -25, 8, 8, 0);
+            // 側廳 (Alcoves) - 同步修正入口柱牆位置
+            addWall(26, -20, 10, 8, Math.PI/2); 
+            // 這裡的柱牆也從 X=34 移動到 X=36，配合主牆面後退
+            addWall(36, -20, 10, 8, Math.PI/2); 
+            addWall(30, -25, 8, 8, 0);
             addArt('Alc_N_W', 26 + FRAME_OFF, 4, -20, Math.PI/2, 3, 3);
-            addArt('Alc_N_E', 34 - FRAME_OFF, 4, -20, -Math.PI/2, 3, 3);
+            addArt('Alc_N_E', 36 - FRAME_OFF, 4, -20, -Math.PI/2, 3, 3);
             addArt('Alc_N_B', 30, 4, -25 + FRAME_OFF, 0, 4, 3);
 
-            addWall(26, 20, 10, 8, Math.PI/2); addWall(34, 20, 10, 8, Math.PI/2); addWall(30, 25, 8, 8, 0);
+            // 南側側廳
+            addWall(26, 20, 10, 8, Math.PI/2); 
+            addWall(36, 20, 10, 8, Math.PI/2); // 移動到 X=36
+            addWall(30, 25, 8, 8, 0);
             addArt('Alc_S_W', 26 + FRAME_OFF, 4, 20, Math.PI/2, 3, 3);
-            addArt('Alc_S_E', 34 - FRAME_OFF, 4, 20, -Math.PI/2, 3, 3);
+            addArt('Alc_S_E', 36 - FRAME_OFF, 4, 20, -Math.PI/2, 3, 3);
             addArt('Alc_S_B', 30, 4, 25 - FRAME_OFF, Math.PI, 4, 3);
 
             // 3. 圓廳
