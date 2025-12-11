@@ -256,7 +256,7 @@
             const fill = new THREE.DirectionalLight(0xddeeff, 0.3);
             fill.position.set(-20, 30, -20); scene.add(fill);
 
-            buildSceneV30(); // ★ v30 中島版場景
+            buildSceneV30(); // ★ v30 空間極致版
 
             raycaster = new THREE.Raycaster();
             setupControls();
@@ -312,11 +312,13 @@
             addArt('Hall_N_R', 10, 4, -12 + FRAME_OFF, 0, 3.5, 3.5);
             addArt('Hall_S_L', -10, 4, 12 - FRAME_OFF, Math.PI, 3.5, 3.5);
             addArt('Hall_S_R', 10, 4, 12 - FRAME_OFF, Math.PI, 3.5, 3.5);
-            // ★★★ 修正 2：將畫框往中間 Z= -9->-6 和 9->6 移動，避免被柱子擋住 ★★★
-            addArt('Hall_W_Top', -16 + FRAME_OFF, 4, -6, Math.PI/2, 3.5, 3.5);
-            addArt('Hall_W_Bot', -16 + FRAME_OFF, 4, 6, Math.PI/2, 3.5, 3.5);
-            addArt('Hall_E_Top', 16 - FRAME_OFF, 4, -9, -Math.PI/2, 3.5, 3.5);
-            addArt('Hall_E_Bot', 16 - FRAME_OFF, 4, 9, -Math.PI/2, 3.5, 3.5);
+            
+            // ★★★ 修正 1：出生點矮牆區畫作 ★★★
+            // 原本 Z= -6/6 導致被柱子結構吃掉，現在改為 ±3.5，讓它更靠近牆面中心，完全避開柱子。
+            addArt('Hall_W_Top', -16 + FRAME_OFF, 4, -3.5, Math.PI/2, 3.5, 3.5);
+            addArt('Hall_W_Bot', -16 + FRAME_OFF, 4, 3.5, Math.PI/2, 3.5, 3.5);
+            addArt('Hall_E_Top', 16 - FRAME_OFF, 4, -3.5, -Math.PI/2, 3.5, 3.5);
+            addArt('Hall_E_Bot', 16 - FRAME_OFF, 4, 3.5, -Math.PI/2, 3.5, 3.5);
 
             addWall(0, 5, 8, 5, 0); 
             addArt('Center_S', 0, 3.5, 5 + FRAME_OFF, 0, 3.5, 2.5);
@@ -328,15 +330,17 @@
             addWall(21, 15, 10, 8, 0);  
             addWall(43, 15, 18, 8, 0);  
 
-            // ★★★ 修正 1：將原本擋住側廳入口(X=29)的畫作，移動到入口旁的空牆面 (X=22) ★★★
-            addArt('Wide_N_1', 22, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
-            addArt('Wide_N_2', 35, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
+            // 北側畫作配置
+            addArt('Wide_N_1', 22, 4, -15 + FRAME_OFF, 0, 3.5, 3.5); // 入口左側
+            // ★★★ 修正 2：中島入口右側畫作移至最深處 ★★★
+            // 原本 X=35 擋住入口，現在移到 X=50 (靠近圓廳的牆面上)
+            addArt('Wide_N_2', 50, 4, -15 + FRAME_OFF, 0, 3.5, 3.5); 
             addArt('Wide_N_3', 41, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
             addArt('Wide_N_4', 47, 4, -15 + FRAME_OFF, 0, 3.5, 3.5);
 
-            // 同步修正南側
-            addArt('Wide_S_1', 22, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5);
-            addArt('Wide_S_2', 35, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5);
+            // 南側畫作配置 (同步修正)
+            addArt('Wide_S_1', 22, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5); // 入口左側
+            addArt('Wide_S_2', 50, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5); // 移到圓廳旁
             addArt('Wide_S_3', 41, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5);
             addArt('Wide_S_4', 47, 4, 15 - FRAME_OFF, Math.PI, 3.5, 3.5);
 
